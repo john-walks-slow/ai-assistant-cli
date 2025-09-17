@@ -1,0 +1,196 @@
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
+import ora from 'ora';
+
+import { AiOperation, FileOperation, ResponseOperation } from '../types/operations';
+import { CliStyle } from '../utils/cli-style';
+import { getSystemPrompt } from '../utils/config-manager';
+import { getAiResponse } from '../utils/network';
+import { constructSystemPrompt, createUserPrompt } from '../constants/prompts';
+import { parseAiResponse } from './ai-response-parser';
+import { reviewAndExecutePlan } from './plan-reviewer';
+import { getFileContext } from './file-context';
+
+/**
+ * 处理用户请求的主调度函数。
+ * @param userPrompt - 用户的AI指令。
+ * @param files - 可选的文件列表作为AI的上下文。
+ * @param systemPrompt - 可选的系统提示，传入空字符串时将使用默认系统提示。
+ * @throws {Error} 如果文件处理失败或AI请求失败。
+ */
+export async function processRequest(userPrompt: string, files: string[], systemPrompt?: string): Promise<void> {
+  if (!userPrompt?.trim()) {
+    console.log(CliStyle.warning('用户请求为空，退出。'));
+    return;
+  }
+
+  // 构造系统提示
+  let actualSystemPrompt: string;
+  
+  if (systemPrompt !== undefined) {
+    // 明确指定了系统提示（可能是空字符串）
+    actualSystemPrompt = systemPrompt;
+  } else {
+    // 检查配置文件中的系统提示
+    const configSystemPrompt = await getSystemPrompt();
+    if (configSystemPrompt) {
+      console.log(CliStyle.info('使用配置文件中的自定义系统提示词。'));
+      actualSystemPrompt = configSystemPrompt;
+    } else {
+      // 使用默认系统提示
+      actualSystemPrompt = constructSystemPrompt();
+    }
+  }
+
+  let actualUserPromptContent: string;
+
+  // 步骤1：准备用户指令和文件上下文
+  try {
+    if (files.length > 0) {
+      console.log(CliStyle.info('正在读取文件并为AI准备上下文...'));
+      actualUserPromptContent = createUserPrompt(userPrompt, await getFileContext(files));
+    } else {
+      actualUserPromptContent = createUserPrompt(userPrompt);
+    }
+  } catch (error) {
+    throw new Error(`文件处理失败: ${(error as Error).message}`);
+  }
+
+  // 步骤2：从AI获取响应
+  console.log(CliStyle.process('AI正在思考您的请求...'));
+  const aiSpinner = ora({
+    text: 'AI生成响应中',
+    spinner: {
+      interval: 80,
+      frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
+    },
+  }).start();
+
+  let aiResponse: string;
+  const startTime = Date.now();
+  let updateInterval: NodeJS.Timeout | undefined = undefined;
+  try {
+    // 模拟流式进度，定期更新 spinner 文本
+    updateInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      aiSpinner.text = `AI生成响应中... (${elapsed}s)`;
+    }, 1000);
+
+    aiResponse = await getAiResponse(actualUserPromptContent, actualSystemPrompt);
+    clearInterval(updateInterval);
+    aiSpinner.succeed(`AI响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`);
+  } catch (error) {
+    if (updateInterval) clearInterval(updateInterval);
+    aiSpinner.fail('AI响应获取失败');
+    console.error(CliStyle.error(`AI请求失败: ${(error as Error).message}`));
+    throw error;
+  }
+
+  // 保存AI原始响应到临时文件（增强版）
+  await saveAiResponseToTempFile(aiResponse, userPrompt);
+
+  // 步骤3：处理AI响应
+  await processAiResponse(aiResponse, userPrompt);
+}
+
+/**
+ * 处理原始AI响应字符串，包括解析、显示和执行。
+ * @param aiResponse - AI的原始字符串响应。
+ * @param userPrompt - 原始用户请求，用于历史记录。
+ * @throws {Error} 如果处理AI响应失败。
+ */
+export async function processAiResponse(aiResponse: string, userPrompt?: string): Promise<void> {
+  if (!aiResponse?.trim()) {
+    console.log(CliStyle.warning('AI响应为空，无操作可执行。'));
+    return;
+  }
+
+  try {
+    console.log(CliStyle.process('\n--- 解析AI响应 ---'));
+    const operations = parseAiResponse(aiResponse);
+
+    if (operations.length === 0) {
+      console.log(CliStyle.warning('AI未提出任何结构化操作。'));
+      if (aiResponse.trim().length > 0) {
+        console.log(CliStyle.info('\n--- 原始AI响应 ---'));
+        console.log(CliStyle.markdown(aiResponse.trim()));
+      }
+      return;
+    }
+
+    console.log(CliStyle.success(`成功解析 ${operations.length} 个操作。`));
+
+    // 分离响应操作和文件操作
+    const responseOps = operations.filter((op): op is ResponseOperation => op.type === 'response');
+    const fileOps = operations.filter((op): op is FileOperation => op.type !== 'response');
+
+    // 步骤1：显示AI的文本响应
+    if (responseOps.length > 0) {
+      console.log(CliStyle.success('\n--- AI说明 ---'));
+      responseOps.forEach((op) => {
+        if (op.comment) {
+          console.log(CliStyle.comment(`说明: ${op.comment}`));
+        }
+        console.log(CliStyle.markdown(op.content));
+        console.log();
+      });
+      console.log(CliStyle.success('--- 说明结束 ---\n'));
+    }
+
+    // 步骤2：处理文件操作
+    if (fileOps.length > 0) {
+      const initialPromptMessage = '';
+      await reviewAndExecutePlan(fileOps, initialPromptMessage, userPrompt);
+    } else {
+      console.log(CliStyle.success('AI操作完成（仅包含说明文本）。'));
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(CliStyle.error(`\n处理AI响应失败: ${errorMessage}`));
+
+    // 优雅降级：显示原始响应
+    console.log(CliStyle.warning('\n由于解析错误，显示AI的原始响应:'));
+    console.log(CliStyle.info('\n--- 原始AI响应 ---'));
+    console.log(CliStyle.markdown(aiResponse.substring(0, 100))); // 限制长度
+    if (aiResponse.length > 100) {
+      console.log(CliStyle.muted(`... (响应被截断，还有 ${aiResponse.length - 100} 个字符)`));
+    }
+    console.log(CliStyle.info('--- 原始响应结束 ---\n'));
+    // Rethrow the error to indicate failure in the overall process
+    throw error;
+  }
+}
+
+/**
+ * 将AI响应保存到临时文件，便于调试。
+ * @param aiResponse - AI响应内容。
+ * @param userPrompt - 用户原始提示。
+ */
+async function saveAiResponseToTempFile(aiResponse: string, userPrompt: string): Promise<void> {
+  try {
+    const tempDir = os.tmpdir();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safePrompt = userPrompt.replace(/[^\w\-]/g, '_').substring(0, 20);
+    const tempFileName = `mai-ai-response-${timestamp}-${safePrompt}.md`;
+    const tempFilePath = path.join(tempDir, tempFileName);
+
+    const saveContent = [
+      '--- AI Response Debug Info ---',
+      `Timestamp: ${new Date().toISOString()}`,
+      `User Prompt: ${userPrompt}`,
+      `Response Length: ${aiResponse.length}`,
+      '--- Raw AI Response ---',
+      '',
+      aiResponse,
+      '',
+      '--- End of Response ---',
+    ].join('\n');
+
+    await fs.writeFile(tempFilePath, saveContent, 'utf-8');
+    console.log(CliStyle.muted(`AI响应已保存: ${tempFilePath}`));
+  } catch (error) {
+    // 非关键错误，不抛出异常
+    console.log(CliStyle.warning(`无法保存AI响应到临时文件: ${(error as Error).message}`));
+  }
+}

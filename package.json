@@ -1,0 +1,40 @@
+{
+  "name": "mai-cli",
+  "version": "0.1.0",
+  "description": "简单 AI 编码助手",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch & node --watch dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "John R",
+  "license": "MIT",
+  "bin": {
+    "mai": "dist/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.12.2",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "diff": "^5.2.0",
+    "glob": "^10.3.10",
+    "inquirer": "^9.2.14",
+    "json5": "^2.2.3",
+    "ora": "^8.2.0",
+    "picomatch": "^2.3.1",
+    "zod": "^4.1.9"
+  },
+  "devDependencies": {
+    "@types/diff": "^5.0.9",
+    "@types/glob": "^8.1.0",
+    "@types/inquirer": "^9.0.7",
+    "@types/json5": "^0.0.30",
+    "@types/node": "^20.10.6",
+    "@types/picomatch": "^4.0.2",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}
