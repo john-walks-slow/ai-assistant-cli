@@ -5,6 +5,8 @@ import * as path from 'path';
 import { CliStyle } from '../utils/cli-style';
 import {
   AVAILABLE_MODELS,
+  ConfigOption,
+  getConfigurableOptions,
   getCurrentModel,
   getSystemPrompt,
   loadConfig,
@@ -51,125 +53,6 @@ export async function listConfig(): Promise<void> {
 /**
  * 设置配置项。
  */
-export async function setConfig(): Promise<void> {
-  const choices = [
-    { name: '设置AI模型', value: 'model' },
-    { name: '设置系统提示词', value: 'systemPrompt' },
-    { name: '返回主菜单', value: 'back' },
-  ];
-
-  const { choice } = await inquirer.prompt([{
-    type: 'list',
-    name: 'choice',
-    message: '选择要设置的配置项:',
-    choices,
-  }]);
-
-  if (choice === 'back') {
-    return;
-  }
-
-  switch (choice) {
-    case 'model':
-      await setModelInteractive();
-      break;
-    case 'systemPrompt':
-      await setSystemPromptInteractive();
-      break;
-  }
-
-  // 递归调用以继续配置
-  await setConfig();
-}
-
-/**
- * 交互式设置 AI 模型。
- */
-async function setModelInteractive(): Promise<void> {
-  const currentModel = await getCurrentModel();
-  console.log(CliStyle.info(`当前模型: ${currentModel}`));
-
-  const { modelChoice } = await inquirer.prompt([{
-    type: 'list',
-    name: 'modelChoice',
-    message: '选择新的AI模型:',
-    choices: AVAILABLE_MODELS.map((model) => ({
-      name: `${model}${model === currentModel ? ' (当前)' : ''}`,
-      value: model,
-    })),
-  }]);
-
-  await setModel(modelChoice as ModelType);
-  console.log(CliStyle.success(`模型已更新为: ${modelChoice}`));
-}
-
-/**
- * 交互式设置系统提示词。
- */
-async function setSystemPromptInteractive(): Promise<void> {
-  const currentPrompt = await getSystemPrompt();
-  
-  console.log(CliStyle.info('系统提示词用于定义AI的行为和角色。'));
-  console.log(CliStyle.muted('默认情况下使用内置的编码助手提示。您可以在这里设置自定义提示。'));
-  
-  if (currentPrompt) {
-    console.log(CliStyle.info(`当前自定义提示长度: ${currentPrompt.length} 字符`));
-    const { showCurrent } = await inquirer.prompt([{
-      type: 'confirm',
-      name: 'showCurrent',
-      message: '是否显示当前系统提示词？',
-      default: false,
-    }]);
-
-    if (showCurrent) {
-      console.log(CliStyle.muted('\n--- 当前系统提示词 ---'));
-      console.log(currentPrompt);
-      console.log(CliStyle.muted('--- 结束 ---\n'));
-    }
-  }
-
-  const { useEditor, promptText } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'useEditor',
-      message: '如何输入系统提示词？',
-      choices: [
-        { name: '使用文本编辑器 (推荐用于长提示)', value: 'editor' },
-        { name: '直接在终端输入', value: 'terminal' },
-      ],
-    },
-    {
-      type: 'input',
-      name: 'promptText',
-      message: '输入系统提示词:',
-      when: (answers: any) => answers.useEditor === 'terminal',
-    },
-  ]);
-
-  let newPrompt: string;
-
-  if (useEditor === 'editor') {
-    console.log(CliStyle.process('将在您的默认编辑器中打开。保存并关闭以继续...'));
-    // 这里可以集成编辑器功能，暂时使用多行输入
-    const answers = await inquirer.prompt([{
-      type: 'editor',
-      name: 'multilinePrompt',
-      message: '输入系统提示词 (多行):',
-      // postProcess: (v: string) => v.trim(), // Editor 自动处理
-    }]);
-    newPrompt = answers.multilinePrompt.trim(); // 确保去除可能的空白
-  } else {
-    newPrompt = promptText!;
-  }
-
-  if (!newPrompt || newPrompt.trim() === '') {
-    console.log(CliStyle.warning('未输入有效的系统提示词，取消设置。'));
-    return;
-  }
-
-  await setSystemPrompt(newPrompt);
-  console.log(CliStyle.success(`系统提示词已更新 (长度: ${newPrompt.length} 字符)`));
-}
 
 /**
  * 重置配置到默认值。
@@ -196,5 +79,48 @@ export async function resetConfig(): Promise<void> {
     console.log(CliStyle.success('配置已重置到默认值。'));
   } catch (error) {
     console.error(CliStyle.error(`重置配置失败: ${(error as Error).message}`));
+  }
+}
+
+/**
+ * 直接设置配置项（非交互式）。
+ * @param key - 配置键，如 'model', 'systemPrompt', 'historyDepth'
+ * @param value - 配置值字符串，将根据类型转换
+ */
+export async function directSetConfig(key: string, value: string): Promise<void> {
+  try {
+    const options = await getConfigurableOptions();
+    const option = options.find((o: ConfigOption) => o.key === key);
+
+    if (!option) {
+      throw new Error(`不支持的配置键: ${key}。可用键: ${options.map(o => o.key).join(', ')}`);
+    }
+
+    let convertedValue: any = value;
+
+    // 根据类型转换值
+    if (option.type === 'number') {
+      const num = Number(value);
+      if (isNaN(num)) {
+        throw new Error(`无效的数字值 for ${key}: ${value}`);
+      }
+      if (option.min !== undefined && num < option.min) {
+        throw new Error(`值 ${num} 小于最小值 ${option.min}`);
+      }
+      if (option.max !== undefined && num > option.max) {
+        throw new Error(`值 ${num} 大于最大值 ${option.max}`);
+      }
+      convertedValue = num;
+    } else if (option.type === 'select') {
+      if (option.options && !option.options.includes(value)) {
+        throw new Error(`无效的选择值 for ${key}: ${value}。可用选项: ${option.options.join(', ')}`);
+      }
+    } // text 类型直接用字符串
+
+    await option.setter(convertedValue);
+    console.log(CliStyle.success(`${key} 已设置为: ${convertedValue}`));
+  } catch (error) {
+    console.error(CliStyle.error(`设置 ${key} 失败: ${(error as Error).message}`));
+    process.exit(1);
   }
 }

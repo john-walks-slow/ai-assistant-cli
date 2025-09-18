@@ -4,7 +4,6 @@ import inquirer from 'inquirer';
 // import ora from 'ora'; // ora 似乎未被使用，可以移除
 
 import { CliStyle } from '../utils/cli-style';
-import { appendHistory, HistoryEntry, saveExecutionHistory } from '../commands/history';
 import { OperationValidator } from './operation-definitions';
 import { replaceLines, replaceInFile } from '../utils/file-utils';
 import { FileOperation, AiOperation } from './operation-schema';
@@ -17,7 +16,12 @@ import { FileOperation, AiOperation } from './operation-schema';
  * @returns 操作执行结果数组，包含成功/失败状态。
  * @throws {Error} 如果计划包含无效操作或执行不完整。
  */
-export async function executePlan(operations: FileOperation[], planDescription: string): Promise<AiOperation[]> {
+export async function executePlan(operations: FileOperation[], planDescription: string): Promise<{
+  executionResults: Array<{ operation: FileOperation; success: boolean; error?: string; }>;
+  fileOriginalContents: Map<string, string>;
+  successfulOps: number;
+  failedOps: number;
+}> {
   console.log(CliStyle.info('\n正在执行计划...'));
 
   // 预加载需要备份的文件初始内容
@@ -102,14 +106,7 @@ export async function executePlan(operations: FileOperation[], planDescription: 
   const totalOps = executionResults.length;
   const executionSummary = `执行完成: ${successfulOps} 成功, ${failedOps} 失败 (共 ${totalOps} 个操作)`;
   console.log(CliStyle.success(executionSummary));
-
-  const operationsDescription = executedOperations
-    .map((op) => `${op.type} ${op.type === 'rename' ? op.newPath : op.filePath} // ${op.comment}`)
-    .join('; ');
-
-  const executionDescription = `执行结果: ${successfulOps}/${totalOps} 个操作成功 (${failedOps} 个失败)\n${operationsDescription}`;
-
-  await saveExecutionHistory(executedOperations, planDescription, executionDescription, fileOriginalContents);
+  const executionDescription = `执行结果: ${successfulOps}/${totalOps} 个操作成功 (${failedOps} 个失败)`;
 
   // 如果有失败操作，抛出错误
   if (failedOps > 0) {
@@ -118,5 +115,5 @@ export async function executePlan(operations: FileOperation[], planDescription: 
 
   console.log(CliStyle.success('✓ 所有操作执行成功！'));
 
-  return operations;
+  return { executionResults, fileOriginalContents, successfulOps, failedOps };
 }

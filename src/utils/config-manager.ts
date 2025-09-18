@@ -2,17 +2,26 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
+import { CliStyle } from './cli-style';
+import JSON5 from 'json5';
+
+/**
+ * 定义一个可配置的提示模板。
+ */
+export interface PromptTemplate {
+  name: string;      // 模板的唯一名称
+  template: string;  // 实际的提示模板字符串，支持占位符
+  description?: string; // 模板的可选描述
+}
+
 /**
  * MaiCLI 配置接口。
  */
 export interface MaiConfig {
-  templates?: Array<{
-    name: string;
-    template: string;
-    description?: string;
-  }>;
+  templates?: PromptTemplate[]; // 用户定义的提示模板列表
   model?: string;
   systemPrompt?: string; // 支持从配置文件配置系统提示词
+  historyDepth?: number; // 默认历史深度，用于自动注入最近N条历史
   // Add other config fields as needed
 }
 
@@ -80,7 +89,7 @@ export async function loadConfig(): Promise<MaiConfig> {
   const configPath = getConfigFile();
   try {
     const content = await fs.readFile(configPath, 'utf-8');
-    const parsed = JSON.parse(content) as MaiConfig; // Assume JSON for parsing
+    const parsed = JSON5.parse(content) as MaiConfig;
     // 验证模型
     if (parsed.model && !AVAILABLE_MODELS.includes(parsed.model as ModelType)) {
       parsed.model = DEFAULT_MODEL; // 如果无效则回退到默认值
@@ -104,11 +113,20 @@ export async function saveConfig(config: MaiConfig): Promise<void> {
   const configDir = getMaiConfigDir();
   const configPath = getConfigFile();
   try {
+    console.log(CliStyle.info(`保存配置到: ${configPath}`)); // 添加日志
     await fs.mkdir(configDir, { recursive: true });
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    const content = JSON.stringify(config, null, 2);
+    await fs.writeFile(configPath, content, 'utf-8');
+    console.log(CliStyle.success(`配置保存成功: ${configPath}`)); // 添加成功日志
     configCache = config; // 更新缓存
   } catch (error) {
-    console.error(`Error: Unable to save config to '${configPath}'. ${ (error as Error).message }`);
+    console.error(CliStyle.error(`保存配置失败到 '${configPath}': ${(error as Error).message}`));
+    // 尝试诊断常见问题
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      console.error(CliStyle.warning('目录不存在，请检查权限。'));
+    } else if ((error as NodeJS.ErrnoException).code === 'EACCES') {
+      console.error(CliStyle.warning('权限不足，无法写入 ~/.mai 目录。请检查文件权限。'));
+    }
     throw error;
   }
 }
@@ -187,9 +205,88 @@ export async function setSystemPrompt(prompt: string): Promise<void> {
 }
 
 /**
+ * 从配置中获取历史深度，如果未设置则返回默认值 0。
+ * @returns 历史深度数字。
+ */
+export async function getHistoryDepth(): Promise<number> {
+  try {
+    const config = await loadConfig();
+    return config.historyDepth || 0;
+  } catch (error) {
+    // 忽略配置错误，返回默认值
+    return 0;
+  }
+}
+
+/**
+ * 在配置中设置历史深度。
+ * @param depth - 要设置的历史深度。
+ */
+export async function setHistoryDepth(depth: number): Promise<void> {
+  const config = await loadConfig();
+  config.historyDepth = depth;
+  await saveConfig(config); // 保存并使缓存失效
+}
+
+/**
  * 重置配置缓存。
  * 这是一个内部函数，用于在外部重置配置后更新内存状态。
  */
 export function resetConfigCache(): void {
   configCache = null;
+}
+
+/**
+ * 可配置选项的描述接口。
+ */
+export interface ConfigOption {
+  key: keyof MaiConfig;
+  name: string;
+  description?: string;
+  type: 'select' | 'text' | 'number' | 'boolean';
+  options?: string[]; // 对于 select 类型
+  min?: number; // 对于 number 类型
+  max?: number;
+  getter: () => Promise<any>;
+  setter: (value: any) => Promise<void>;
+}
+
+/**
+ * 获取所有可配置选项。
+ * 这允许动态扩展配置，而无需修改 set 命令。
+ * @returns ConfigOption 数组。
+ */
+export async function getConfigurableOptions(): Promise<ConfigOption[]> {
+  const options: ConfigOption[] = [
+    {
+      key: 'model',
+      name: 'AI 模型',
+      description: '选择使用的 AI 模型',
+      type: 'select',
+      options: [...AVAILABLE_MODELS],
+      getter: getCurrentModel,
+      setter: (model: string) => setModel(model as ModelType),
+    },
+    {
+      key: 'systemPrompt',
+      name: '系统提示词',
+      description: '自定义 AI 的系统提示词，用于定义行为和角色',
+      type: 'text',
+      getter: getSystemPrompt,
+      setter: setSystemPrompt,
+    },
+    {
+      key: 'historyDepth',
+      name: '历史深度',
+      description: '自动注入最近 N 条历史记录到提示中 (0 表示禁用)',
+      type: 'number',
+      min: 0,
+      max: 50,
+      getter: getHistoryDepth,
+      setter: setHistoryDepth,
+    },
+    // 未来可在此添加更多选项，如 templates 等
+  ];
+
+  return options;
 }

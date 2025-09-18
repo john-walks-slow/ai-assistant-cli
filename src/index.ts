@@ -8,8 +8,8 @@ import { processRequest, processAiResponse } from './core/main-processor';
 import { CliStyle } from './utils/cli-style';
 import * as packageJson from '../package.json';
 import { listAvailableModels, selectModelInteractive } from './commands/model';
-import { listConfig, resetConfig, setConfig } from './commands/config';
-import { deleteHistory, listHistory, redoHistory, undoHistory } from './commands/history';
+import { listConfig, resetConfig, directSetConfig } from './commands/config';
+import { clearHistory, deleteHistory, listHistory, redoHistory, undoHistory } from './commands/history';
 import { applyTemplate, listTemplates, showTemplate } from './commands/template';
 import { startDelimiter } from './core/operation-definitions';
 
@@ -22,13 +22,14 @@ program
   .name('mai')
   .version(packageJson.version)
   .description('简单 AI 编码助手')
-  .argument('[prompt]', 'AI指令。未提供时将提示输入。支持 ask: 使用前缀来省略系统提示词。')
-  .argument('[files...]', '可选的文件列表作为上下文。')
-  .option('-s, --system <prompt>', '使用自定义系统提示词（覆盖默认系统提示）。')
-  .action(async (promptArg: string | undefined, files: string[], options: { ask?: boolean; system?: string; }) => {
+    .argument('[prompt]', 'AI指令。未提供时将提示输入。支持 ask: 前缀或 -a 选项来忽略系统提示词。')
+    .argument('[files...]', '可选的文件列表作为上下文。支持范围格式如 "src/file.ts:10-20" (提取第10-20行，仅限于具体文件路径；glob 模式不支持范围)。')
+  .option('-c, --chat', '忽略系统提示词，使用空提示。')
+  .option('-h, --history <ids>', '指定历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。')
+  .option('-d, --history-depth <number>', '历史深度，自动加载最近 N 条历史（默认从配置或 0）。')
+  .action(async (promptArg: string | undefined, files: string[], options: { chat?: boolean; history?: string; historyDepth?: string; }) => {
     let actualPrompt: string;
-    let useDefaultSystemPrompt = true;
-    const customSystemPrompt: string | undefined = options.system;
+    let systemToUse: string | undefined = undefined;
 
     // 如果未提供指令，则提示用户输入
     if (!promptArg || promptArg.trim() === '') {
@@ -55,27 +56,55 @@ program
       if (trimmedPrompt.startsWith('ask:') || trimmedPrompt.startsWith('ask：')) {
         const prefixLength = trimmedPrompt.startsWith('ask:') ? 4 : 5;
         actualPrompt = trimmedPrompt.substring(prefixLength).trim();
-        useDefaultSystemPrompt = false;
+        systemToUse = '';
       } else {
         actualPrompt = promptArg;
       }
     }
-    // 如果提供了 --system 选项，使用自定义系统提示
-    if (customSystemPrompt) {
-      useDefaultSystemPrompt = false;
+
+    // 处理 -c 选项
+    if (options.chat) {
+      systemToUse = '';
+      console.log(CliStyle.info('使用 -c 选项：忽略系统提示词。'));
+    }
+
+    // 解析 historyIds 和 historyDepth
+    let historyIds: string[] | undefined;
+    let historyDepth: number | undefined;
+    if (options.history) {
+      historyIds = options.history.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      if (historyIds.length === 0) historyIds = undefined;
+    }
+    if (options.historyDepth) {
+      const depthNum = parseInt(options.historyDepth, 10);
+      if (!isNaN(depthNum) && depthNum > 0) {
+        historyDepth = depthNum;
+      } else {
+        console.log(CliStyle.warning(`无效的历史深度: ${options.historyDepth}，忽略。`));
+      }
     }
 
     try {
-      if (useDefaultSystemPrompt) {
-        await processRequest(actualPrompt, files);
-      } else {
-        const systemToUse = customSystemPrompt || ''; // 如果没有自定义，使用空提示
-        if (systemToUse) {
-          console.log(CliStyle.info(`使用自定义系统提示词（长度: ${systemToUse.length} 字符）。`));
+      // 解析 historyIds 和 historyDepth
+      let historyIds: string[] | undefined;
+      let historyDepth: number | undefined;
+      if (options.history) {
+        historyIds = options.history.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        if (historyIds.length === 0) historyIds = undefined;
+      }
+      if (options.historyDepth) {
+        const depthNum = parseInt(options.historyDepth, 10);
+        if (!isNaN(depthNum) && depthNum > 0) {
+          historyDepth = depthNum;
         } else {
-          console.log(CliStyle.info('已禁用系统提示词。'));
+          console.log(CliStyle.warning(`无效的历史深度: ${options.historyDepth}，忽略。`));
         }
-        await processRequest(actualPrompt, files, systemToUse);
+      }
+
+      if (systemToUse !== undefined) {
+        await processRequest(actualPrompt, files, historyIds, historyDepth, systemToUse);
+      } else {
+        await processRequest(actualPrompt, files, historyIds, historyDepth);
       }
     } catch (error) {
       console.error(CliStyle.error(`\n发生严重错误: ${error instanceof Error ? error.message : String(error)}`));
@@ -132,8 +161,9 @@ program
   .description('管理项目历史记录（轻量级版本控制）。支持使用 ID/名称 或 ~n 索引格式（如 ~1 表示最近一次）。')
   .addCommand(new Command('list')
     .description('列出所有可用历史记录。')
-    .action(async () => {
-      await listHistory();
+    .option('-f, --file-only', '只显示包含文件操作的历史记录。')
+    .action(async (options) => {
+      await listHistory(options.fileOnly);
     }))
   .addCommand(new Command('undo')
     .description('撤销指定的历史记录所做的更改，而不删除该历史记录。')
@@ -152,8 +182,12 @@ program
     .addArgument(new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）'))
     .action(async (idOrName: string) => {
       await deleteHistory(idOrName);
+    }))
+  .addCommand(new Command('clear')
+    .description('清除所有历史记录。')
+    .action(async () => {
+      await clearHistory();
     }));
-
 /**
  * 定义 'template' 命令，用于管理和应用提示模板。
  */
@@ -210,9 +244,13 @@ program
       await listConfig();
     }))
   .addCommand(new Command('set')
-    .description('交互式设置配置项。')
-    .action(async () => {
-      await setConfig();
+    .description('直接设置配置项。使用: mai config set <key> <value> (如 mai config set model x-ai/grok-code-fast-1)')
+    .argument('<key>', '配置键 (如 model, systemPrompt, historyDepth)')
+    .argument('<value>', '配置值')
+    .description('设置配置项。使用: mai config set <key> <value>')
+    .action(async (key: string, value: string) => {
+      console.log(CliStyle.info(`设置 ${key} = ${value}`));
+      await directSetConfig(key, value);
     }))
   .addCommand(new Command('reset')
     .description('重置所有配置到默认值。')

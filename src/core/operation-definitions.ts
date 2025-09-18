@@ -13,16 +13,16 @@ import {
 /**
  * 操作分隔符常量。
  */
-export function startDelimiter(identifier: string = 'operation') {
-  return `--- ${identifier} start ---`;
+export function startDelimiter(identifier: string = 'OPERATION') {
+  return `--- ${identifier} START ---`;
 }
-export function endDelimiter(identifier: string = 'operation') {
-  return `--- ${identifier} end ---`;
+export function endDelimiter(identifier: string = 'OPERATION') {
+  return `--- ${identifier} END ---`;
 }
 // 正则表达式确保定界符占据一整行（忽略前后空格）
 // ^([A-Z0-9_]+)_START$ 匹配以 _START 结尾的完整字符串，并捕获前面的部分
-export const startDelimiterRegex = /^--- ([A-Za-z0-9_]+) start ---$/;
-export const endDelimiterRegex = /^--- ([A-Za-z0-9_]+) end ---$/;
+export const startDelimiterRegex = /^--- ([A-Za-z0-9_]+) START ---$/;
+export const endDelimiterRegex = /^--- ([A-Za-z0-9_]+) END ---$/;
 
 /**
  * 使用 Zod 的简化操作验证工具。

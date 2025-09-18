@@ -1,4 +1,3 @@
-import { AiOperation } from '../types/operations';
 import {
   endDelimiter,
   endDelimiterRegex,
@@ -8,6 +7,7 @@ import {
 } from './operation-definitions';
 import { CliStyle } from '../utils/cli-style';
 import * as JSON5 from 'json5'; // Use JSON5 for parsing flexibly
+import { AiOperation } from './operation-schema';
 
 /**
  * 类型别名，用于清晰表示局部 AI 操作。
@@ -288,7 +288,7 @@ export function parseAiResponse(response: string, shouldValidate = true): AiOper
   if (hasDelimiters) {
     console.log(CliStyle.warning('检测到定界符但格式无效'));
   } else {
-    console.log(CliStyle.warning('未找到有效操作格式'));
+    // console.log(CliStyle.warning('未找到有效操作格式'));
   }
 
   return [];
