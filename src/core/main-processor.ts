@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import ora from 'ora';
 
-import { AiOperation, FileOperation, ResponseOperation } from '../types/operations';
+import { AiOperation, FileOperation, ResponseOperation } from './operation-schema';
 import { CliStyle } from '../utils/cli-style';
 import { getSystemPrompt } from '../utils/config-manager';
 import { constructSystemPrompt, createUserPrompt } from '../constants/prompts';
