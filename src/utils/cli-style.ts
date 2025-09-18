@@ -77,6 +77,7 @@ export class CliStyle {
     switch (type) {
       case 'create': return chalk.green('创建');
       case 'edit': return chalk.blue('编辑');
+      case 'replaceInFile': return chalk.blue('编辑替换');
       case 'rename': return chalk.magenta('重命名');
       case 'delete': return chalk.red('删除');
       default: return chalk.white(type.toUpperCase());

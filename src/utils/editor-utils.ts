@@ -12,18 +12,18 @@ import { CliStyle } from './cli-style';
  */
 export async function openInEditor(content: string): Promise<string> {
   const editor = 'code'; // 硬编码为VS Code
+  const projectRoot = process.cwd();
   const tempFilePath = path.join(os.tmpdir(), `mai-edit-${Date.now()}.tmp`);
 
   try {
     await fs.writeFile(tempFilePath, content, 'utf8');
-    await runProcess(editor, ['--wait', tempFilePath]);
+    await runProcess(editor, ['--folder-uri', projectRoot, '--wait', tempFilePath]);
     return await fs.readFile(tempFilePath, 'utf8');
   } finally {
     await fs.unlink(tempFilePath).catch(() => { /* 清理时忽略错误 */ });
   }
 }
 
-/**
 /**
  * 在VS Code中显示两个内容之间的差异，并允许用户编辑新内容（支持部分编辑的完整上下文审查）。
  * 进程会等待VS Code差异窗口关闭。如果用户保存了对新内容的更改，则返回修改后的内容。
@@ -33,7 +33,8 @@ export async function openInEditor(content: string): Promise<string> {
  * @returns 用户编辑并保存后的新内容，如果没有保存更改则返回 `null`。
  */
 export async function showDiffInVsCode(originalContent: string, newContent: string, fileNameHint?: string): Promise<string | null> {
-  const tempDir = os.tmpdir();
+  const tempDir = path.join(process.cwd(), '.ai-temp');
+  await fs.mkdir(tempDir, { recursive: true }).catch(() => { /* 忽略已存在错误 */ });
   const timestamp = Date.now();
   const baseName = fileNameHint ? path.basename(fileNameHint, path.extname(fileNameHint)) : 'mai';
   const extName = fileNameHint ? path.extname(fileNameHint) : '.tmp';
@@ -41,11 +42,14 @@ export async function showDiffInVsCode(originalContent: string, newContent: stri
   const originalPath = path.join(tempDir, `${baseName}-original-${timestamp}${extName}`);
   const newPath = path.join(tempDir, `${baseName}-new-${timestamp}${extName}`);
   const editor = 'code'; // 硬编码为VS Code
+  const projectRoot = process.cwd();
 
   try {
     await fs.writeFile(originalPath, originalContent, 'utf8');
     await fs.writeFile(newPath, newContent, 'utf8'); // 写入AI提议的内容到新文件
-    await runProcess(editor, ['--diff', '--wait', originalPath, newPath]);
+    await runProcess(editor, [
+      //'--folder-uri', projectRoot,
+      '--diff', '--wait', originalPath, newPath]);
 
     // 读取用户可能已修改的newPath内容
     const editedContent = await fs.readFile(newPath, 'utf8');

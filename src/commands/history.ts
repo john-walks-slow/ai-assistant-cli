@@ -2,9 +2,11 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import inquirer from 'inquirer';
 
-import { AiOperation, FileOperation } from '../types/operations';
 import { CliStyle } from '../utils/cli-style';
 import { findGitRoot } from '../utils/git-helper';
+import { executePlan } from '../core/plan-executor';
+import { reviewAndExecutePlan } from '../core/plan-reviewer';
+import { FileOperation } from '../core/operation-schema';
 
 /**
  * 历史记录文件的路径。
@@ -31,7 +33,8 @@ export interface HistoryEntry {
   description?: string;
   timestamp: string;
   prompt: string;
-  operations: AiOperation[]; // 使用新的 operations 字段，包含所有操作类型
+  operations: FileOperation[]; // 使用新的 operations 字段，包含所有操作类型
+  originalFileContents?: Record<string, string>; // 存储操作前文件的原始内容，用于撤销
 }
 
 /**
@@ -44,7 +47,7 @@ export interface HistoryEntry {
 function parseIdOrName(
   idOrName: string,
   history: HistoryEntry[],
-): { entry?: HistoryEntry; index?: number; isIndex: boolean } {
+): { entry?: HistoryEntry; index?: number; isIndex: boolean; } {
   // 检查是否为索引格式 ~n
   if (idOrName.startsWith('~') && /^\~\d+$/.test(idOrName)) {
     const index = parseInt(idOrName.slice(1), 10);
@@ -54,14 +57,14 @@ function parseIdOrName(
       throw new Error(`索引 ${idOrName} 超出范围 (有效范围: 1-${history.length})`);
     }
   }
-  
+
   // 按 ID 或名称查找
   const foundEntry = history.find((h) => h.id === idOrName || h.name === idOrName);
   if (foundEntry) {
     const index = history.indexOf(foundEntry);
     return { entry: foundEntry, index, isIndex: false };
   }
-  
+
   throw new Error(`未找到历史记录: ${idOrName}`);
 }
 
@@ -113,7 +116,7 @@ export async function listHistory(): Promise<void> {
   history.forEach((entry, index) => {
     const idOrName = entry.name || entry.id;
     const opCount = entry.operations.length;
-    const fileOpCount = entry.operations.filter((op): op is FileOperation => op.type !== 'response').length;
+    const fileOpCount = entry.operations.length;
     const responseCount = opCount - fileOpCount;
 
     console.log(`${CliStyle.info(`${index + 1}. ${idOrName} (~${index + 1})`)} - ${entry.description} (${new Date(entry.timestamp).toLocaleString()})`);
@@ -150,10 +153,10 @@ export async function undoHistory(idOrName: string): Promise<void> {
 
   const displayId = isIndex ? `~${index! + 1}` : (entry.name || entry.id);
   console.log(CliStyle.process(`正在撤销: ${entry.description} (${displayId})`));
-  console.log(CliStyle.muted(`涉及 ${entry.operations.length} 个操作（${entry.operations.filter((op): op is FileOperation => op.type !== 'response').length} 个文件操作）`));
+  console.log(CliStyle.muted(`涉及 ${entry.operations.length} 个操作`));
 
   // 只处理文件操作，忽略 response 操作
-  const fileOperations = entry.operations.filter((op): op is FileOperation => op.type !== 'response').reverse();
+  const fileOperations = entry.operations.slice().reverse();
 
   for (const op of fileOperations) {
     try {
@@ -167,11 +170,11 @@ export async function undoHistory(idOrName: string): Promise<void> {
           });
           console.log(CliStyle.success(`  ✓ 删除: ${op.filePath}`));
           break;
-
-        case 'edit':
+        case 'replaceInFile':
           // 撤销写入：恢复原始内容（如果有）
-          if (op.originalContent !== undefined) {
-            await fs.writeFile(op.filePath, op.originalContent, 'utf-8');
+          const originalContent = entry.originalFileContents?.[op.filePath];
+          if (originalContent !== undefined) {
+            await fs.writeFile(op.filePath, originalContent, 'utf-8');
             console.log(CliStyle.success(`  ✓ 恢复: ${op.filePath}`));
           } else {
             console.log(CliStyle.warning(`  跳过恢复: ${op.filePath} (无原始内容备份，请手动处理)`));
@@ -180,19 +183,20 @@ export async function undoHistory(idOrName: string): Promise<void> {
 
         case 'rename':
           // 撤销重命名：恢复原始路径
-          if (op.originalPath) {
-            await fs.rename(op.filePath, op.originalPath); // new -> old
-            console.log(CliStyle.success(`  ✓ 恢复重命名: ${op.filePath} -> ${op.originalPath}`));
+          if (op.oldPath) {
+            await fs.rename(op.newPath, op.oldPath); // new -> old
+            console.log(CliStyle.success(`  ✓ 恢复重命名: ${op.newPath} -> ${op.oldPath}`));
           } else {
-            console.log(CliStyle.warning(`  跳过重命名操作: ${op.filePath} (无原始路径)`));
+            console.log(CliStyle.warning(`  跳过重命名操作: ${op.newPath} (无原始路径)`));
           }
           break;
 
         case 'delete':
           // 撤销删除：重新创建文件
-          if (op.originalContent !== undefined) {
+          const originalContentForDelete = entry.originalFileContents?.[op.filePath];
+          if (originalContentForDelete !== undefined) {
             await fs.mkdir(path.dirname(op.filePath), { recursive: true });
-            await fs.writeFile(op.filePath, op.originalContent, 'utf-8');
+            await fs.writeFile(op.filePath, originalContentForDelete, 'utf-8');
             console.log(CliStyle.success(`  ✓ 恢复: ${op.filePath}`));
           } else {
             console.log(CliStyle.warning(`  跳过恢复删除: ${op.filePath} (无原始内容)`));
@@ -200,10 +204,11 @@ export async function undoHistory(idOrName: string): Promise<void> {
           break;
 
         default:
-          console.log(CliStyle.warning(`  未知操作类型: ${(op as any).type}`));
+          console.log(CliStyle.warning(`  未知操作类型: ${op}`));
       }
     } catch (error) {
-      console.error(CliStyle.error(`  撤销 ${op.type} ${op.filePath} 失败: ${String(error)}`));
+      const filePath = op.type === 'rename' ? op.newPath : op.filePath;
+      console.error(CliStyle.error(`  撤销 ${op.type} ${filePath} 失败: ${String(error)}`));
     }
   }
 
@@ -216,8 +221,9 @@ export async function undoHistory(idOrName: string): Promise<void> {
  * @param idOrName - 要重新应用的历史记录的 ID、名称或索引。
  * @param force - 是否强制重新应用，跳过内容变化检查。
  */
-export async function redoHistory(idOrName: string, force: boolean = false): Promise<void> {
+export async function redoHistory(idOrName: string): Promise<void> {
   const history = await loadHistory();
+
   if (history.length === 0) {
     console.error(CliStyle.error('没有历史记录可重新应用。'));
     return;
@@ -238,153 +244,43 @@ export async function redoHistory(idOrName: string, force: boolean = false): Pro
   }
 
   const displayId = isIndex ? `~${index! + 1}` : (entry.name || entry.id);
-  console.log(CliStyle.process(`正在重新应用: ${entry.description} (${displayId})`));
-  console.log(CliStyle.muted(`涉及 ${entry.operations.length} 个操作（${entry.operations.filter((op): op is FileOperation => op.type !== 'response').length} 个文件操作）`));
+  console.log(CliStyle.process(`正在重新应用: ${displayId}`));
+  console.log(CliStyle.muted(`涉及 ${entry.operations.length} 个操作`));
+  await reviewAndExecutePlan(entry.operations,`` , entry.prompt);
+}
 
-  // 只处理文件操作，按原始顺序重新应用
-  const fileOperations = entry.operations.filter((op): op is FileOperation => op.type !== 'response');
+/**
+ * 保存执行历史记录。
+ * @param executedOperations - 已执行的操作数组。
+ * @param planDescription - 计划描述。
+ * @param executionDescription - 执行结果描述。
+ * @param fileOriginalContents - 原始文件内容映射。
+ */
+export async function saveExecutionHistory(
+  executedOperations: FileOperation[],
+  planDescription: string,
+  executionDescription: string,
+  fileOriginalContents: Map<string, string>
+): Promise<void> {
+  try {
+    console.log(CliStyle.muted('正在保存本次AI计划的执行历史...'));
 
-  // 检查内容是否发生变化
-  let hasChanges = false;
-  const changeDetails: string[] = [];
+    // 转换原始文件内容为记录对象
+    const originalFileContents: Record<string, string> = Object.fromEntries(fileOriginalContents);
 
-  for (const op of fileOperations) {
-    if (op.type === 'edit' || op.type === 'create') {
-      try {
-        const fileExists = await fs.access(op.filePath).then(() => true).catch(() => false);
-        if (fileExists) {
-          const currentContent = await fs.readFile(op.filePath, 'utf-8');
-          const expectedContent = op.content || '';
-          if (currentContent !== expectedContent) {
-            hasChanges = true;
-            changeDetails.push(`${op.filePath} (内容已修改)`);
-          }
-        }
-      } catch (error) {
-        // 如果检查文件时出错，保守地认为有变化
-        hasChanges = true;
-        changeDetails.push(`${op.filePath} (无法检查内容: ${String(error)})`);
-      }
-    } else if (op.type === 'rename') {
-      try {
-        const targetExists = await fs.access(op.filePath).then(() => true).catch(() => false);
-        const sourceExists = await fs.access(op.oldPath || '').then(() => true).catch(() => false);
-        if (targetExists || !sourceExists) { // 如果目标文件存在或源文件不存在，则认为有变化
-          hasChanges = true;
-          changeDetails.push(`${op.filePath} (文件位置已变化)`);
-        }
-      } catch (error) {
-        // 如果检查文件时出错，保守地认为有变化
-        hasChanges = true;
-        changeDetails.push(`${op.filePath} (无法检查位置: ${String(error)})`);
-      }
-    } else if (op.type === 'delete') {
-      try {
-        const fileExists = await fs.access(op.filePath).then(() => true).catch(() => false);
-        if (fileExists) { // 如果文件仍然存在，说明未被删除
-          hasChanges = true;
-          changeDetails.push(`${op.filePath} (文件已恢复，需要再次删除)`);
-        }
-      } catch (error) {
-        // 如果检查文件时出错，保守地认为文件可能已恢复
-        hasChanges = true;
-        changeDetails.push(`${op.filePath} (无法检查存在性: ${String(error)})`);
-      }
-    }
+    const historyEntry: HistoryEntry = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      prompt: planDescription,
+      description: executionDescription,
+      operations: executedOperations,
+      originalFileContents: Object.keys(originalFileContents).length > 0 ? originalFileContents : undefined,
+    };
+
+    await appendHistory(historyEntry);
+  } catch (error) {
+    console.log(CliStyle.warning(`警告：无法保存执行历史: ${(error as Error).message}`));
   }
-
-  // 如果检测到变化且没有 force 选项，询问用户
-  if (hasChanges && !force) {
-    console.log(CliStyle.warning('\n⚠️  检测到内容变化：'));
-    changeDetails.forEach((detail) => {
-      console.log(`   - ${detail}`);
-    });
-    
-    const { shouldContinue, useForce } = await inquirer.prompt([
-      {
-        type: 'confirm',
-        name: 'shouldContinue',
-        message: '内容已发生变化，是否仍然要重新应用？（可能覆盖当前更改）',
-        default: false,
-      },
-      {
-        type: 'confirm',
-        name: 'useForce',
-        message: '是否将此操作标记为强制模式（跳过未来变化检查）？',
-        default: false,
-        when: (answers: any) => answers.shouldContinue,
-      },
-    ]);
-
-    if (!shouldContinue) {
-      console.log(CliStyle.info('已取消重新应用。'));
-      return;
-    }
-
-    // 如果用户选择强制模式，递归调用自己并传递 force=true
-    if (useForce) {
-      return await redoHistory(idOrName, true);
-    }
-  } else if (hasChanges && force) {
-    console.log(CliStyle.warning('\n⚠️  强制模式：检测到以下内容变化，但将忽略并继续：'));
-    changeDetails.forEach((detail) => {
-      console.log(`   - ${detail}`);
-    });
-  } else if (!hasChanges && force) {
-    // 强制模式但没有实际检测到变化，可以这样提示或不做任何事
-    console.log(CliStyle.info('\nℹ️  强制模式已启用，未检测到显著变化，将继续执行。'));
-  }
-
-
-  for (const op of fileOperations) {
-    try {
-      switch (op.type) {
-        case 'create':
-          await fs.mkdir(path.dirname(op.filePath), { recursive: true });
-          await fs.writeFile(op.filePath, op.content || '', 'utf-8');
-          console.log(CliStyle.success(`  ✓ 创建: ${op.filePath}`));
-          break;
-
-        case 'edit':
-          await fs.mkdir(path.dirname(op.filePath), { recursive: true });
-          await fs.writeFile(op.filePath, op.content || '', 'utf-8');
-          console.log(CliStyle.success(`  ✓ 写入: ${op.filePath}`));
-          break;
-
-        case 'rename':
-          if (op.oldPath) {
-            // 确保源文件存在，如果不存在则跳过
-            const sourceExists = await fs.access(op.oldPath).then(() => true).catch(() => false);
-            if (sourceExists) {
-              await fs.rename(op.oldPath, op.filePath);
-              console.log(CliStyle.success(`  ✓ 重命名: ${op.oldPath} -> ${op.filePath}`));
-            } else {
-              console.log(CliStyle.warning(`  跳过重命名: 源文件 ${op.oldPath} 不存在`));
-            }
-          } else {
-            console.log(CliStyle.warning(`  跳过重命名操作: ${op.filePath} (无源路径)`));
-          }
-          break;
-
-        case 'delete':
-          await fs.unlink(op.filePath).catch((err) => {
-            if (err.code !== 'ENOENT') {
-              console.error(CliStyle.warning(`删除 ${op.filePath} 时出错: ${err.message}`));
-            } else {
-              console.log(CliStyle.muted(`  跳过删除: ${op.filePath} (文件已不存在)`));
-            }
-          });
-          break;
-
-        default:
-          console.log(CliStyle.warning(`  未知操作类型: ${(op as any).type}`));
-      }
-    } catch (error) {
-      console.error(CliStyle.error(`  重新应用 ${op.type} ${op.filePath} 失败: ${String(error)}`));
-    }
-  }
-
-  console.log(CliStyle.success(`\n重新应用完成: ${entry.description} (${displayId})`));
 }
 
 /**
