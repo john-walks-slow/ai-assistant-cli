@@ -4,13 +4,14 @@ import * as path from 'path';
 
 import { CliStyle } from '../utils/cli-style';
 import {
-  AVAILABLE_MODELS,
   ConfigOption,
+  getAvailableModels,
   getConfigurableOptions,
   getCurrentModel,
+  getHistoryDepth,
   getSystemPrompt,
   loadConfig,
-  ModelType,
+  parseModel,
   resetConfigCache,
   saveConfig,
   setModel,
@@ -25,17 +26,22 @@ export async function listConfig(): Promise<void> {
     const config = await loadConfig();
     const currentModel = await getCurrentModel();
     const systemPrompt = await getSystemPrompt();
+    const historyDepth = await getHistoryDepth();
+
+    const parsedModel = parseModel(currentModel);
+    const modelDisplay = parsedModel ? `${parsedModel.provider} / ${parsedModel.modelName}` : currentModel;
 
     console.log(CliStyle.info('\n--- 当前配置 ---'));
-    
-    console.log(`模型: ${CliStyle.success(currentModel)}`);
-    
+
+    console.log(`模型: ${CliStyle.success(modelDisplay)}`);
+    console.log(`历史深度: ${historyDepth ?? '0 (默认)'}`);
+
     if (systemPrompt) {
       console.log(`系统提示词: ${CliStyle.muted('(已配置，长度: ' + systemPrompt.length + ' 字符)')}`);
     } else {
       console.log(`系统提示词: ${CliStyle.warning('使用默认')}`);
     }
-    
+
     if (config.templates && config.templates.length > 0) {
       console.log(`模板: ${config.templates.length} 个`);
     } else {

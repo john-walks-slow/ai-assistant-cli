@@ -58,7 +58,7 @@ export async function displayPlan(operations: FileOperation[]): Promise<void> {
       case 'delete':
         line += CliStyle.filePath(op.filePath);
         break;
-      case 'rename':
+      case 'move':
         line += `${CliStyle.filePath(op.oldPath)} -> ${CliStyle.filePath(op.newPath)}`;
         break;
       default:
@@ -180,53 +180,28 @@ async function reviewChangesInDetail(operations: FileOperation[]): Promise<FileO
 }
 
 /**
- * 允许用户在默认编辑器中手动编辑计划。
+ * 将计划导出为 JSON 文件。
  * @param operations - 当前文件操作列表。
- * @returns 成功编辑后的计划数组，或 null。
  */
-async function editPlanInEditor(operations: FileOperation[]): Promise<FileOperation[] | null> {
-  const editSpinner = ora('打开编辑器进行计划修改...').start();
+async function exportPlanToJson(operations: FileOperation[]): Promise<void> {
   try {
+    const { fileName } = await inquirer.prompt([{
+      type: 'input',
+      name: 'fileName',
+      message: '请输入导出文件名 (默认: plan.json):',
+      default: 'plan.json',
+    }]);
+
     const planString = JSON.stringify(operations, null, 2);
-    console.log(CliStyle.process('\n正在您的默认编辑器中打开计划。保存并关闭文件以继续...'));
+    const fullPath = path.resolve(fileName);
 
-    const editedString = await openInEditor(planString);
+    await fs.writeFile(fullPath, planString, 'utf-8');
 
-    if (planString === editedString) {
-      editSpinner.info('计划中未检测到更改。');
-      return null;
-    }
-
-    const newPlan = JSON.parse(editedString); // 使用 JSON.parse，假设用户会保存为有效 JSON
-    if (!Array.isArray(newPlan)) {
-      throw new Error('编辑后的计划必须是有效的JSON数组。');
-    }
-
-    // 使用 Zod 验证编辑后的操作
-    const validation = OperationValidator.validateOperations(newPlan);
-    if (!validation.isValid) {
-      console.log(CliStyle.error(`编辑后的计划包含无效操作: ${validation.errors?.join('; ') || '未知错误'}`));
-      const { continueAnyway } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'continueAnyway',
-        message: '是否继续使用可能无效的计划？',
-        default: false,
-      }]);
-
-      if (!continueAnyway) {
-        return null;
-      }
-    }
-
-    editSpinner.succeed('计划编辑完成');
-    console.log(CliStyle.success('计划已成功更新。'));
-    return newPlan as FileOperation[];
-
+    console.log(CliStyle.success(`计划已导出到 ${CliStyle.filePath(fullPath)}`))
+    console.log(CliStyle.success('导出完成。'));
   } catch (error) {
-    editSpinner.fail('编辑计划失败');
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(CliStyle.error(`\n处理编辑计划时出错: ${errorMessage}`));
-    return null;
+    console.error(CliStyle.error(`\n导出计划时出错: ${errorMessage}`));
   }
 }
 
@@ -240,10 +215,15 @@ export async function reviewAndExecutePlan(
   operations: FileOperation[],
   promptMessage: string = '',
   userPrompt?: string,
-): Promise<void> {
+): Promise<{ applied: boolean; }> {
+  if (operations.length === 0) {
+    return { applied: false };
+  }
+
   let currentOperations = [...operations]; // 创建副本
   let inReviewLoop = true;
   let currentPromptMessage: string = promptMessage;
+  let applied = false;
 
   // 初始验证
   const initialValidation = OperationValidator.validateOperations(currentOperations);
@@ -265,7 +245,7 @@ export async function reviewAndExecutePlan(
       choices: [
         { name: '应用计划', value: 'apply' },
         { name: '审查更改（VS Code diff）', value: 'review' },
-        { name: '手动编辑计划 (JSON)', value: 'edit' },
+        { name: '导出计划 (JSON)', value: 'export' },
         { name: '取消', value: 'cancel' },
       ],
     }]);
@@ -316,10 +296,12 @@ export async function reviewAndExecutePlan(
             }
 
             await executePlan(currentOperations, userPrompt || 'AI plan execution');
+            applied = true;
             inReviewLoop = false;
           } catch (error) {
             console.error(CliStyle.error(`\n应用计划失败: ${(error as Error).message}`));
             inReviewLoop = false;
+            throw error; // 重新抛出以便上层处理
           }
         }
         break;
@@ -338,17 +320,9 @@ export async function reviewAndExecutePlan(
         }
         break;
 
-      case 'edit':
-        const editedOps = await editPlanInEditor(currentOperations);
-        if (editedOps) {
-          currentOperations = editedOps;
-          if (currentOperations.length === 0) {
-            console.log(CliStyle.success('编辑后计划为空。'));
-            inReviewLoop = false;
-          } else {
-            currentPromptMessage = '计划已更新。审查新计划:';
-          }
-        }
+      case 'export':
+        await exportPlanToJson(currentOperations);
+        currentPromptMessage = '计划已导出。继续审查:';
         break;
 
       case 'cancel':
@@ -358,8 +332,16 @@ export async function reviewAndExecutePlan(
     }
   }
 
-  // 重新显示更新后的计划
-  if (currentPromptMessage && currentOperations.length > 0) {
+  // 重新显示更新后的计划，如果适用
+  if (currentOperations.length > 0 && !applied) {
     await displayPlan(currentOperations);
   }
+
+  if (applied) {
+    console.log(CliStyle.success('计划已成功应用。'));
+  } else {
+    console.log(CliStyle.info('计划未应用。'));
+  }
+
+  return { applied };
 }

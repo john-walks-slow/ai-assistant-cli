@@ -25,9 +25,10 @@ program
     .argument('[prompt]', 'AI指令。未提供时将提示输入。支持 ask: 前缀或 -a 选项来忽略系统提示词。')
     .argument('[files...]', '可选的文件列表作为上下文。支持范围格式如 "src/file.ts:10-20" (提取第10-20行，仅限于具体文件路径；glob 模式不支持范围)。')
   .option('-c, --chat', '忽略系统提示词，使用空提示。')
+  .option('-a, --auto-context', '启用自动上下文准备，使用 AI 收集相关文件上下文。')
   .option('-h, --history <ids>', '指定历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。')
   .option('-d, --history-depth <number>', '历史深度，自动加载最近 N 条历史（默认从配置或 0）。')
-  .action(async (promptArg: string | undefined, files: string[], options: { chat?: boolean; history?: string; historyDepth?: string; }) => {
+  .action(async (promptArg: string | undefined, files: string[], options: { chat?: boolean; autoContext?: boolean; history?: string; historyDepth?: string; }) => {
     let actualPrompt: string;
     let systemToUse: string | undefined = undefined;
 
@@ -101,10 +102,12 @@ program
         }
       }
 
+      const autoContext = options.autoContext || false;
+  
       if (systemToUse !== undefined) {
-        await processRequest(actualPrompt, files, historyIds, historyDepth, systemToUse);
+        await processRequest(actualPrompt, files, historyIds, historyDepth, systemToUse, autoContext);
       } else {
-        await processRequest(actualPrompt, files, historyIds, historyDepth);
+        await processRequest(actualPrompt, files, historyIds, historyDepth, undefined, autoContext);
       }
     } catch (error) {
       console.error(CliStyle.error(`\n发生严重错误: ${error instanceof Error ? error.message : String(error)}`));

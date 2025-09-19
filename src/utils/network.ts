@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import * as fs from 'fs/promises';
 import { CliStyle } from './cli-style';
-import { getApiEndpoint, getApiKey, getCurrentModel } from './config-manager';
+import { getApiEndpoint, getApiKey, getCurrentModel, getCurrentModelName } from './config-manager';
 
 /**
  * 延迟执行指定毫秒数。
@@ -92,42 +92,31 @@ export class AxiosNetwork {
  * @returns AI响应的字符串内容。
  * @throws {Error} 如果AI请求失败。
  */
-export async function getAiResponse(prompt: string, systemPrompt?: string, retries = 3, debug = false): Promise<string> {
-  const messages: Array<{ role: string; content: string; }> = [];
-
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: prompt });
-
-  const model = await getCurrentModel(); // Use centralized getCurrentModel
+export async function getAiResponse(messages: { role: string; content: string }[], retries = 3): Promise<string> {
+  const model = await getCurrentModelName(); // Use centralized getCurrentModel
   const payload = {
     model,
     messages,
   };
 
-  if (debug) {
-    console.log('--- DEBUG: 原始AI请求负载 ---');
-    console.log(CliStyle.muted(JSON.stringify(payload, null, 2)));
-    console.log('-------------------------------------');
-  }
+  CliStyle.printDebug('--- 原始AI请求负载 ---');
+  CliStyle.printDebugContent(JSON.stringify(payload, null, 2));
+  CliStyle.printDebug('-------------------------------------');
 
   for (let i = 0; i < retries; i++) {
     try {
       const aiResponse: AiApiResponse = await AxiosNetwork.invoke({
-        uri: getApiEndpoint(), // Use centralized getApiEndpoint
+        uri: await getApiEndpoint(), // Use centralized getApiEndpoint
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${getApiKey()}`, // Use centralized getApiKey
+          Authorization: `Bearer ${await getApiKey()}`, // Use centralized getApiKey
         },
         body: payload,
       });
 
-      if (debug) {
-        console.log('--- DEBUG: 原始AI响应负载 ---');
-        console.log(CliStyle.muted(aiResponse.choices[0].message.content.trim()));
-        console.log('-------------------------------------');
-      }
+      CliStyle.printDebug('--- 原始AI响应负载 ---');
+      CliStyle.printDebugContent(aiResponse.choices[0].message.content.trim());
+      CliStyle.printDebug('-------------------------------------');
       if (aiResponse.choices && aiResponse.choices.length > 0 && aiResponse.choices[0].message?.content) {
         return aiResponse.choices[0].message.content.trim();
       } else {

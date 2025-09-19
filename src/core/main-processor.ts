@@ -9,10 +9,11 @@ import { getSystemPrompt } from '../utils/config-manager';
 import { constructSystemPrompt, createUserPrompt } from '../constants/prompts';
 import { parseAiResponse } from './ai-response-parser';
 import { reviewAndExecutePlan } from './plan-reviewer';
-import { getFileContext } from './file-context';
+import { FileContextItem, getFileContext } from './file-context';
 import { getAiResponse } from '../utils/network';
-import { formatHistoryContext, formatMultipleHistoryContexts, getRecentHistory, getHistoryById, loadHistory, saveHistory, saveAiHistory, parseIdOrName, HistoryEntry } from '../commands/history';
+import { formatHistoryContext, formatMultipleHistoryContexts, getRecentHistory, getHistoryById, loadHistory, saveHistory, saveAiHistory, parseIdOrName, HistoryEntry, updateHistoryApplied } from '../commands/history';
 import { getHistoryDepth } from '../utils/config-manager';
+import { prepareAutoContext } from './context-agent';
 
 /**
  * 处理用户请求的主调度函数。
@@ -23,11 +24,16 @@ import { getHistoryDepth } from '../utils/config-manager';
  * @param systemPrompt - 可选的系统提示，传入空字符串时将使用默认系统提示。
  * @throws {Error} 如果文件处理失败或AI请求失败。
  */
-export async function processRequest(userPrompt: string, files: string[], historyIds?: string[], historyDepth?: number, systemPrompt?: string): Promise<void> {
+export async function processRequest(userPrompt: string, files: string[], historyIds?: string[], historyDepth?: number, systemPrompt?: string, autoContext?: boolean): Promise<void> {
   if (!userPrompt?.trim()) {
     console.log(CliStyle.warning('用户请求为空，退出。'));
     return;
   }
+
+  let historyMessages: { role: string; content: string; }[] = [];
+
+  let fileContext = '';
+  let actualUserPromptContent = '';
 
   // 构造系统提示
   let actualSystemPrompt: string;
@@ -52,13 +58,17 @@ export async function processRequest(userPrompt: string, files: string[], histor
     }
   }
 
-  let actualUserPromptContent: string;
-
   // 步骤1：准备用户指令、文件上下文和历史上下文
   try {
-    let fileContext = '';
-    let historyContext = '';
     let entries: HistoryEntry[] = [];
+    let additionalFiles: string[] = [];
+
+    if (autoContext) {
+      console.log(CliStyle.info('启用自动上下文准备...'));
+      const autoItems: FileContextItem[] = await prepareAutoContext(userPrompt);
+      additionalFiles = autoItems.map(item => item.path);
+      console.log(CliStyle.info(`自动上下文添加了 ${additionalFiles.length} 个文件`));
+    }
 
     if (historyIds && historyIds.length > 0) {
       console.log(CliStyle.info(`正在加载多个历史上下文: ${historyIds.join(', ')}`));
@@ -73,7 +83,6 @@ export async function processRequest(userPrompt: string, files: string[], histor
           }
         });
       }
-      historyContext = formatMultipleHistoryContexts(entries);
     } else {
       let effectiveDepth: number;
       if (historyDepth !== undefined) {
@@ -92,24 +101,36 @@ export async function processRequest(userPrompt: string, files: string[], histor
             }
           });
         });
-        historyContext = formatMultipleHistoryContexts(entries);
       }
     }
 
-    // 去重 files
-    files = [...new Set(files)];
+    // 合并 auto 上下文文件并去重
+    files = [...new Set([...files, ...additionalFiles])];
 
     if (files.length > 0) {
       console.log(CliStyle.info('正在读取文件并为AI准备上下文...'));
       fileContext = await getFileContext(files);
     }
 
-    actualUserPromptContent = createUserPrompt(userPrompt, fileContext, historyContext);
+    actualUserPromptContent = createUserPrompt(userPrompt);
+
+    // 构建历史消息：从最早到最近
+    if (entries.length > 0) {
+      const reversedEntries = entries.slice().reverse(); // 从旧到新
+      for (const entry of reversedEntries) {
+        historyMessages.push({ role: 'user', content: entry.prompt });
+        historyMessages.push({ role: 'assistant', content: entry.aiResponse || '' });
+        if (entry.applied !== undefined) {
+          const choice = entry.applied ? '应用' : '放弃';
+          historyMessages.push({ role: 'user', content: `用户选择了${choice}该计划。` });
+        }
+      }
+      console.log(CliStyle.info(`已将 ${entries.length} 条历史添加到对话历史中`));
+    }
   } catch (error) {
     throw new Error(`上下文准备失败: ${(error as Error).message}`);
   }
 
-  // 步骤2：从AI获取响应
   console.log(CliStyle.process('AI正在思考您的请求...'));
   const aiSpinner = ora({
     text: 'AI生成响应中',
@@ -129,7 +150,14 @@ export async function processRequest(userPrompt: string, files: string[], histor
       aiSpinner.text = `AI生成响应中... (${elapsed}s)`;
     }, 1000);
 
-    aiResponse = await getAiResponse(actualUserPromptContent, actualSystemPrompt);
+    const messages = [
+      ...(actualSystemPrompt ? [{ role: 'system', content: actualSystemPrompt }] : []),
+      ...historyMessages,
+      { role: 'user', content: actualUserPromptContent },
+      ...(fileContext ? [{ role: 'user', content: fileContext }] : []),
+    ];
+
+    aiResponse = await getAiResponse(messages);
     clearInterval(updateInterval);
     aiSpinner.succeed(`AI响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`);
   } catch (error) {
@@ -224,12 +252,18 @@ export async function processAiResponse(aiResponse: string, userPrompt?: string)
     // 步骤2：处理文件操作
     if (fileOps.length > 0) {
       try {
-        await reviewAndExecutePlan(fileOps, '', userPrompt);
-        // 执行成功，更新历史描述
-        await updateHistoryDescription(historyEntry.id, `执行成功: ${fileOps.length} 个文件操作`);
+        const { applied } = await reviewAndExecutePlan(fileOps, '', userPrompt);
+        if (applied) {
+          // 执行成功，更新历史描述和 applied
+          await updateHistoryDescription(historyEntry.id, `执行成功: ${fileOps.length} 个文件操作`);
+          await updateHistoryApplied(historyEntry.id, true);
+        } else {
+          // 用户取消，更新描述
+          await updateHistoryDescription(historyEntry.id, `未应用: 用户取消`);
+        }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        // 执行失败，更新历史描述
+        // 执行失败，更新历史描述，applied 保持 false
         await updateHistoryDescription(historyEntry.id, `执行失败: ${errorMessage}`);
         // Rethrow to indicate failure
         throw new Error(`文件操作执行失败: ${errorMessage}`);

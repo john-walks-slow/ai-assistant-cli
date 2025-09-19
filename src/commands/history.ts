@@ -7,6 +7,7 @@ import { findGitRoot } from '../utils/git-helper';
 import { executePlan } from '../core/plan-executor';
 import { reviewAndExecutePlan } from '../core/plan-reviewer';
 import { AiOperation, FileOperation } from '../core/operation-schema';
+import { startDelimiter, endDelimiter } from '../core/operation-definitions';
 
 /**
  * 历史记录文件的路径。
@@ -36,6 +37,7 @@ export interface HistoryEntry {
   aiResponse?: string;
   operations: AiOperation[]; // 使用新的 operations 字段，包含所有操作类型
   originalFileContents?: Record<string, string>; // 存储操作前文件的原始内容，用于撤销
+  applied?: boolean; // 是否已应用结果
 }
 
 /**
@@ -137,7 +139,8 @@ export async function listHistory(filterFileOnly: boolean = false): Promise<void
     const fileOpCount = fileOps.length;
     const responseCount = totalOps - fileOpCount;
 
-    console.log(`${CliStyle.info(`${displayIndex + 1}. ${idOrName} (~${originalDisplayIndex})`)} - ${entry.description} (${new Date(entry.timestamp).toLocaleString()})`);
+    const appliedStatus = entry.applied === undefined ? '' : (entry.applied ? ' (已应用)' : ' (未应用)');
+    console.log(`${CliStyle.info(`${displayIndex + 1}. ${idOrName} (~${originalDisplayIndex})${appliedStatus}`)} - ${entry.description} (${new Date(entry.timestamp).toLocaleString()})`);
     console.log(`   提示: ${CliStyle.muted(entry.prompt.substring(0, 50) + (entry.prompt.length > 50 ? '...' : ''))}`);
     console.log(`   操作: ${fileOpCount} 文件操作 ${responseCount > 0 ? `+ ${responseCount} 响应` : ''}${fileOpCount === 0 ? ' (纯AI响应)' : ''}`);
     console.log();
@@ -204,13 +207,13 @@ export async function undoHistory(idOrName: string): Promise<void> {
         }
         break;
 
-      case 'rename':
+      case 'move':
         if (op.oldPath) {
           undoOp = {
-            type: 'rename',
+            type: 'move',
             oldPath: op.newPath,
             newPath: op.oldPath,
-            comment: `撤销重命名: ${op.newPath} -> ${op.oldPath}`
+            comment: `撤销移动: ${op.newPath} -> ${op.oldPath}`
           };
         }
         break;
@@ -220,7 +223,7 @@ export async function undoHistory(idOrName: string): Promise<void> {
         if (originalContentForReplace !== undefined) {
           // 使用 create 来覆盖整个文件恢复原始内容
           undoOp = {
-            type: 'create',
+            type: 'replaceInFile',
             filePath: op.filePath,
             content: originalContentForReplace,
             comment: `撤销替换: 恢复 ${op.filePath} 原始内容`
@@ -315,6 +318,7 @@ export async function saveAiHistory(
       description: executionDescription || `AI响应和 ${operations.length} 个操作`,
       operations,
       originalFileContents: Object.keys(originalFileContents).length > 0 ? originalFileContents : undefined,
+      ...(operations.some(op => op.type !== 'response') ? { applied: false } : {}),
     };
   
     await appendHistory(historyEntry);
@@ -395,13 +399,16 @@ export async function clearHistory(): Promise<void> {
  * @returns 格式化的历史上下文字符串。
  */
 export function formatHistoryContext(entry: HistoryEntry): string {
-  const operationsJson = JSON.stringify(entry.operations, null, 2);
-  const aiResponse = entry.aiResponse || 'N/A';
-  if (entry.operations.length === 0) {
-    return `--- HISTORY: ${entry.id} ---\nTimestamp: ${entry.timestamp}\nPrompt: ${entry.prompt}\nDescription: ${entry.description || 'N/A'}\nAI Response:\n${aiResponse}`;
-  } else {
-    return `--- HISTORY: ${entry.id} ---\nTimestamp: ${entry.timestamp}\nPrompt: ${entry.prompt}\nDescription: ${entry.description || 'N/A'}\nOperations:\n${operationsJson}`;
-  }
+ const operationsJson = JSON.stringify(entry.operations, null, 2);
+ const aiResponse = entry.aiResponse || 'N/A';
+ let historyContent = `${startDelimiter('HISTORY')}\nid: ${entry.id}\ntimestamp: ${entry.timestamp}\nprompt: ${entry.prompt}\ndescription: ${entry.description || 'N/A'}`;
+ if (entry.operations.length === 0) {
+   historyContent += `\naiResponse: ${aiResponse}`;
+ } else {
+   historyContent += `\noperations: ${operationsJson}`;
+ }
+ historyContent += `\n${endDelimiter('HISTORY')}`;
+ return historyContent;
 }
 
 /**
@@ -423,4 +430,18 @@ export async function getRecentHistory(depth: number): Promise<HistoryEntry[]> {
 export function formatMultipleHistoryContexts(entries: HistoryEntry[]): string {
   if (entries.length === 0) return '';
   return entries.map(entry => formatHistoryContext(entry)).join('\n\n---\n\n');
+}
+
+/**
+ * 更新历史记录的应用状态。
+ * @param id - 历史ID。
+ * @param applied - 是否已应用。
+ */
+export async function updateHistoryApplied(id: string, applied: boolean): Promise<void> {
+  const history = await loadHistory();
+  const entry = history.find((h: HistoryEntry) => h.id === id);
+  if (entry) {
+    entry.applied = applied;
+    await saveHistory(history);
+  }
 }
