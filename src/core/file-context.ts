@@ -6,7 +6,7 @@ import { startDelimiter, endDelimiter } from './operation-definitions';
 export interface FileContextItem {
   path: string;
   content?: string;
-  summary?: string;
+  comment?: string;
   start?: number;
   end?: number;
 }
@@ -91,7 +91,7 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
     // 检查文件是否存在
     try {
       await fs.access(file);
-      items.push({ path: file, start: effectiveStart, end: effectiveEnd, summary: undefined });
+      items.push({ path: file, start: effectiveStart, end: effectiveEnd, comment: undefined });
     } catch (accessError) {
       console.log(CliStyle.warning(`警告: 文件不存在或无法访问 '${file}'，跳过。错误: ${(accessError as Error).message}`));
     }
@@ -106,8 +106,8 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
 }
 
 /**
-* 格式化文件上下文对象数组。为未来扩展准备，支持 summary。
-* @param items - 包含文件路径（不支持 glob）、行号范围（可选）和 summary（可选）的对象数组。
+* 格式化文件上下文对象数组。为未来扩展准备，支持 comment。
+* @param items - 包含文件路径（不支持 glob）、行号范围（可选）和 comment（可选）的对象数组。
 * @returns 格式化的上下文字符串。
 */
 export async function formatFileContexts(items: FileContextItem[]): Promise<string> {
@@ -127,7 +127,7 @@ export async function formatFileContexts(items: FileContextItem[]): Promise<stri
 
   return contents.join('\n\n');
 
-  async function addFileContent(item: { path: string; start?: number; end?: number; summary?: string; }, contents: string[]) {
+  async function addFileContent(item: { path: string; start?: number; end?: number; comment?: string; }, contents: string[]) {
     try {
       const stat = await fs.stat(item.path);
       if (stat.isDirectory()) {
@@ -156,16 +156,21 @@ export async function formatFileContexts(items: FileContextItem[]): Promise<stri
       const numberedContent = extractedLines.map((line, index) =>
         `${String(displayStart + index).padStart(4)}|${line}`
       ).join('\n');
-
-      const rangeDesc = item.start !== undefined ? ` (lines ${item.start}-${item.end ?? 'end'})` : '';
-      let fileBlock = `${startDelimiter('FILE')}\npath: ${item.path}`;
+      let fileBlock = `${startDelimiter('FILE')}\n`;
+      fileBlock += `${startDelimiter('metadata')}\npath: ${item.path}\n`;
+      const rangeDesc = item.start !== undefined ? `${item.start}-${item.end ?? 'end'}` : '';
       if (rangeDesc) {
-        fileBlock += `range: \n${rangeDesc}`;
+        fileBlock += `range: ${rangeDesc}\n`;
       }
-      if (item.summary) {
-        fileBlock += `\nsummary: ${item.summary}`;
+      if (item.comment) {
+        fileBlock += `comment: ${item.comment}\n`;
       }
-      fileBlock += `\n${numberedContent}\n${endDelimiter('FILE')}`;
+      fileBlock += `${endDelimiter('metadata')}\n`;
+      // fileBlock += `\n${numberedContent}\n${endDelimiter('FILE')}`;
+      fileBlock += `${startDelimiter('content')}\n`;
+      fileBlock += `${extractedLines.join('\n')}\n`;
+      fileBlock += `${endDelimiter('content')}\n`;
+      fileBlock += endDelimiter('FILE');
       contents.push(fileBlock);
     } catch (error) {
       console.log(CliStyle.warning(`警告: 无法读取文件 ${item.path}，跳过。错误: ${(error as Error).message}`));

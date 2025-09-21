@@ -10,6 +10,7 @@ import {
   getCurrentModel,
   getHistoryDepth,
   getSystemPrompt,
+  getTemperature,
   loadConfig,
   parseModel,
   resetConfigCache,
@@ -27,6 +28,7 @@ export async function listConfig(): Promise<void> {
     const currentModel = await getCurrentModel();
     const systemPrompt = await getSystemPrompt();
     const historyDepth = await getHistoryDepth();
+    const temperature = await getTemperature();
 
     const parsedModel = parseModel(currentModel);
     const modelDisplay = parsedModel ? `${parsedModel.provider} / ${parsedModel.modelName}` : currentModel;
@@ -35,6 +37,7 @@ export async function listConfig(): Promise<void> {
 
     console.log(`模型: ${CliStyle.success(modelDisplay)}`);
     console.log(`历史深度: ${historyDepth ?? '0 (默认)'}`);
+    console.log(`Temperature: ${temperature}`);
 
     if (systemPrompt) {
       console.log(`系统提示词: ${CliStyle.muted('(已配置，长度: ' + systemPrompt.length + ' 字符)')}`);

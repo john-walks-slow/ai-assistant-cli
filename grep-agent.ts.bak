@@ -42,7 +42,7 @@ export async function runGrepAgent(
     const agentPrompt = `
 You are a grep-agent. Your goal is to collect relevant code context for the main task: "${task}".
 
-Current collected context summary: ${currentContext.substring(0, 500)}... (if any)
+Current collected context comment: ${currentContext.substring(0, 500)}... (if any)
 
 Generate 1-3 grep commands to search the project for relevant files/patterns.
 Each command should be in the format: grep -r -n "pattern" path/to/search --include="*.ts,*.js" (limit to source files).

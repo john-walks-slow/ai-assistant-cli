@@ -38,6 +38,7 @@ export interface HistoryEntry {
   operations: AiOperation[]; // 使用新的 operations 字段，包含所有操作类型
   originalFileContents?: Record<string, string>; // 存储操作前文件的原始内容，用于撤销
   applied?: boolean; // 是否已应用结果
+  files?: string[]; // 用户传递的文件列表，用于上下文
 }
 
 /**
@@ -218,12 +219,12 @@ export async function undoHistory(idOrName: string): Promise<void> {
         }
         break;
 
-      case 'replaceInFile':
+      case 'writeWithReplace':
         const originalContentForReplace = entry.originalFileContents?.[op.filePath];
         if (originalContentForReplace !== undefined) {
           // 使用 create 来覆盖整个文件恢复原始内容
           undoOp = {
-            type: 'replaceInFile',
+            type: 'writeWithReplace',
             filePath: op.filePath,
             content: originalContentForReplace,
             comment: `撤销替换: 恢复 ${op.filePath} 原始内容`
@@ -296,13 +297,15 @@ export async function redoHistory(idOrName: string): Promise<void> {
  * @param operations - 所有操作（response + file）。
  * @param fileOriginalContents - 原始文件内容映射（仅文件操作）。
  * @param executionDescription - 执行描述，可选。
+ * @param files - 用户传递的文件列表，可选。
  */
 export async function saveAiHistory(
   userPrompt: string,
   aiResponse: string,
   operations: AiOperation[],
   fileOriginalContents: Map<string, string> = new Map(),
-  executionDescription?: string
+  executionDescription?: string,
+  files?: string[]
 ): Promise<HistoryEntry> {
   try {
     console.log(CliStyle.muted('正在保存本次AI对话历史...'));
@@ -319,6 +322,7 @@ export async function saveAiHistory(
       operations,
       originalFileContents: Object.keys(originalFileContents).length > 0 ? originalFileContents : undefined,
       ...(operations.some(op => op.type !== 'response') ? { applied: false } : {}),
+      ...(files && files.length > 0 ? { files } : {}),
     };
   
     await appendHistory(historyEntry);
@@ -399,16 +403,19 @@ export async function clearHistory(): Promise<void> {
  * @returns 格式化的历史上下文字符串。
  */
 export function formatHistoryContext(entry: HistoryEntry): string {
- const operationsJson = JSON.stringify(entry.operations, null, 2);
- const aiResponse = entry.aiResponse || 'N/A';
- let historyContent = `${startDelimiter('HISTORY')}\nid: ${entry.id}\ntimestamp: ${entry.timestamp}\nprompt: ${entry.prompt}\ndescription: ${entry.description || 'N/A'}`;
- if (entry.operations.length === 0) {
-   historyContent += `\naiResponse: ${aiResponse}`;
- } else {
-   historyContent += `\noperations: ${operationsJson}`;
- }
- historyContent += `\n${endDelimiter('HISTORY')}`;
- return historyContent;
+  const operationsJson = JSON.stringify(entry.operations, null, 2);
+  const aiResponse = entry.aiResponse || 'N/A';
+  let historyContent = `${startDelimiter('HISTORY')}\nid: ${entry.id}\ntimestamp: ${entry.timestamp}\nprompt: ${entry.prompt}\ndescription: ${entry.description || 'N/A'}`;
+  if (entry.files && entry.files.length > 0) {
+    historyContent += `\nfiles: ${JSON.stringify(entry.files)}`;
+  }
+  if (entry.operations.length === 0) {
+    historyContent += `\naiResponse: ${aiResponse}`;
+  } else {
+    historyContent += `\noperations: ${operationsJson}`;
+  }
+  historyContent += `\n${endDelimiter('HISTORY')}`;
+  return historyContent;
 }
 
 /**

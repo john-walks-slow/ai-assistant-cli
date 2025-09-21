@@ -22,6 +22,7 @@ export interface MaiConfig {
   model?: string;
   systemPrompt?: string; // 支持从配置文件配置系统提示词
   historyDepth?: number; // 默认历史深度，用于自动注入最近N条历史
+  temperature?: number; // AI模型的temperature参数，控制输出的随机性
   autoContext?: {
     maxRounds?: number;
     maxFiles?: number;
@@ -39,15 +40,13 @@ export const ENV_VARS = {
   MODEL: '', // Will fallback to DEFAULT_MODEL
 };
 
-export type ProviderName = 'openai' | 'openrouter' | 'gemini_balance';
-
 export interface ProviderConfig {
   url: string;
   models?: string[];
   apiKeyEnv: string;
 }
 
-export type ProvidersConfig = Record<ProviderName, ProviderConfig>;
+export type ProvidersConfig = Record<string, ProviderConfig>;
 
 export const DEFAULT_PROVIDERS: ProvidersConfig = {
   openai: {
@@ -64,10 +63,19 @@ export const DEFAULT_PROVIDERS: ProvidersConfig = {
       'moonshotai/kimi-k2:free',
       'openrouter/sonoma-sky-alpha',
       'openrouter/sonoma-dusk-alpha',
-      'google/gemini-2.5-flash',
       'openai/gpt-4.1-mini',
-      'gemini/gemini-2.0-flash-exp:free',],
+      'google/gemini-2.0-flash-exp:free',
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-pro',
+    ],
     apiKeyEnv: 'OPENROUTER_API_KEY'
+  },
+  gemini: {
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions',
+    models: [
+      'gemini-2.5-flash', 'gemini-2.5-pro'
+    ],
+    apiKeyEnv: 'GEMINI_API_KEY'
   },
   gemini_balance: {
     url: 'https://gemini-balance.johnr.workers.dev/v1/chat/completions',
@@ -107,8 +115,8 @@ export function getConfigFile(): string {
  * @param model - 模型字符串。
  * @returns 解析结果或 null。
  */
-export function parseModel(model: string): { provider: ProviderName; modelName: string; } | null {
-  const knownProviders: ProviderName[] = Object.keys(DEFAULT_PROVIDERS) as ProviderName[];
+export function parseModel(model: string): { provider: string; modelName: string; } | null {
+  const knownProviders: string[] = Object.keys(DEFAULT_PROVIDERS) as string[];
   for (const provider of knownProviders) {
     if (model.startsWith(`${provider}/`)) {
       const modelName = model.slice(provider.length + 1);
@@ -193,6 +201,7 @@ export async function getApiEndpoint(model?: string): Promise<string> {
 
 /**
  * 从环境变量或默认值获取 API 密钥。
+ * 支持多个密钥的负载均衡，如果提供了逗号分隔的多个密钥，则随机选择一个。
  * @returns API 密钥字符串。
  */
 export async function getApiKey(model?: string): Promise<string> {
@@ -214,6 +223,13 @@ export async function getApiKey(model?: string): Promise<string> {
       return ENV_VARS.API_KEY; // 回退到默认 openrouter key
     }
     throw new Error(`API key not found for provider '${parsed.provider}'. Set ${pconfig.apiKeyEnv}.`);
+  }
+
+  // 支持多个密钥的负载均衡
+  const keys = key.split(',').map(k => k.trim()).filter(k => k.length > 0);
+  if (keys.length > 1) {
+    const randomIndex = Math.floor(Math.random() * keys.length);
+    return keys[randomIndex];
   }
   return key;
 }
@@ -249,9 +265,9 @@ export async function getCurrentModel(): Promise<string> {
 
   /**
    * 获取当前模型的 provider。
-   * @returns ProviderName 或 null 如果解析失败。
+   * @returns string 或 null 如果解析失败。
    */
-  export async function getCurrentProvider(): Promise<ProviderName | null> {
+  export async function getCurrentProvider(): Promise<string | null> {
     const currentModel = await getCurrentModel();
     const parsed = parseModel(currentModel);
     return parsed ? parsed.provider : null;
@@ -330,6 +346,33 @@ export async function setHistoryDepth(depth: number): Promise<void> {
 }
 
 /**
+ * 从配置中获取temperature，如果未设置则返回默认值 0.7。
+ * @returns temperature数字。
+ */
+export async function getTemperature(): Promise<number> {
+  try {
+    const config = await loadConfig();
+    return config.temperature !== undefined ? config.temperature : 0.7;
+  } catch (error) {
+    // 忽略配置错误，返回默认值
+    return 0.7;
+  }
+}
+
+/**
+ * 在配置中设置temperature。
+ * @param temperature - 要设置的temperature值。
+ */
+export async function setTemperature(temperature: number): Promise<void> {
+  if (temperature < 0 || temperature > 2) {
+    throw new Error('Temperature must be between 0 and 2');
+  }
+  const config = await loadConfig();
+  config.temperature = temperature;
+  await saveConfig(config); // 保存并使缓存失效
+}
+
+/**
  * 重置配置缓存。
  * 这是一个内部函数，用于在外部重置配置后更新内存状态。
  */
@@ -362,7 +405,7 @@ export async function getAvailableModels(): Promise<string[]> {
   const providers = config.providers || {};
   const allModels: string[] = [];
   for (const [prov, def] of Object.entries(DEFAULT_PROVIDERS)) {
-    const pconfig = providers[prov as ProviderName] || def;
+    const pconfig = providers[prov as keyof typeof DEFAULT_PROVIDERS] || def;
     const models = pconfig.models || def.models || [];
     for (const m of models) {
       allModels.push(`${prov}/${m}`);
@@ -427,6 +470,16 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       max: 50,
       getter: getHistoryDepth,
       setter: setHistoryDepth,
+    },
+    {
+      key: 'temperature',
+      name: 'Temperature',
+      description: 'AI模型的temperature参数，控制输出的随机性 (0-2)',
+      type: 'number',
+      min: 0,
+      max: 2,
+      getter: getTemperature,
+      setter: setTemperature,
     },
     {
       key: 'autoContext.maxRounds',

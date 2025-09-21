@@ -6,7 +6,7 @@ import { getProjectOverview } from '../src/utils/file-utils';
 // Mock getAiResponse to return a fixed response for testing
 // jest.mock('../src/utils/network', () => ({
 //   getAiResponse: jest.fn().mockResolvedValue(JSON.stringify({
-//     files: [{ path: 'src/index.ts', summary: 'Test file' }],
+//     files: [{ path: 'src/index.ts', comment: 'Test file' }],
 //     sufficient: true,
 //     reason: 'Test sufficient',
 //     suggestedSearches: []

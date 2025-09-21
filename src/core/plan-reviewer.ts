@@ -5,10 +5,10 @@ import ora from 'ora';
 
 import { CliStyle } from '../utils/cli-style';
 import { openInEditor, showDiffInVsCode } from '../utils/editor-utils';
-import { OperationValidator } from './operation-definitions';
 import { executePlan } from './plan-executor';
 import { replaceInFile } from '../utils/file-utils';
 import { FileOperation } from './operation-schema';
+import { OperationValidator } from './operation-validator';
 
 /**
  * 向控制台显示提议的文件操作摘要。
@@ -52,7 +52,7 @@ export async function displayPlan(operations: FileOperation[]): Promise<void> {
     }
     switch (op.type) {
       case 'create':
-      case 'replaceInFile':
+      case 'writeWithReplace':
         line += CliStyle.filePath(op.filePath);
         break;
       case 'delete':
@@ -134,7 +134,7 @@ async function reviewChangesInDetail(operations: FileOperation[]): Promise<FileO
         console.log(CliStyle.warning(`审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`));
         reviewedOperations.push(op); // 发生错误时保留原始操作
       }
-    } else if (op.type === 'replaceInFile') {
+    } else if (op.type === 'writeWithReplace') {
       console.log(CliStyle.info(`\n正在显示替换内容: ${CliStyle.filePath(op.filePath)}`));
 
       try {
@@ -215,6 +215,7 @@ export async function reviewAndExecutePlan(
   operations: FileOperation[],
   promptMessage: string = '',
   userPrompt?: string,
+  autoApply?: boolean,
 ): Promise<{ applied: boolean; }> {
   if (operations.length === 0) {
     return { applied: false };
@@ -230,6 +231,41 @@ export async function reviewAndExecutePlan(
   if (!initialValidation.isValid && currentOperations.length > 0) {
     console.log(CliStyle.error('初始操作验证失败，将显示但可能无法执行。'));
     console.log(CliStyle.muted(`错误: ${initialValidation.errors?.slice(0, 3).join(', ') || '未知错误'}`));
+  }
+
+  if (autoApply) {
+    console.log(CliStyle.info('自动应用模式：跳过交互审查，直接执行计划。'));
+    await displayPlan(currentOperations);
+
+    // 应用前最终验证
+    const finalValidation = OperationValidator.validateOperations(currentOperations);
+    if (!finalValidation.isValid) {
+      console.log(CliStyle.error('计划包含无效操作，无法自动应用。'));
+      throw new Error(`无效操作: ${finalValidation.errors?.join('; ') || '未知验证错误'}`);
+    }
+
+    // 验证操作可达性
+    console.log(CliStyle.info('正在验证操作可达性...'));
+    const reachabilityValidation = await OperationValidator.validateOperationsReachability(currentOperations);
+    if (!reachabilityValidation.isValid) {
+      console.log(CliStyle.error('计划包含不可达操作，无法自动应用。'));
+      reachabilityValidation.errors?.forEach(error => {
+        console.log(CliStyle.error(`  ${error}`));
+      });
+      throw new Error(`不可达操作: ${reachabilityValidation.errors?.join('; ') || '未知可达性错误'}`);
+    }
+    console.log(CliStyle.success('✓ 所有操作可达'));
+
+    try {
+      await executePlan(currentOperations, userPrompt || 'AI plan execution');
+      applied = true;
+    } catch (error) {
+      console.error(CliStyle.error(`\n自动应用计划失败: ${(error as Error).message}`));
+      throw error; // 重新抛出以便上层处理
+    }
+
+    console.log(CliStyle.success('计划已成功自动应用。'));
+    return { applied };
   }
 
   while (inReviewLoop) {
