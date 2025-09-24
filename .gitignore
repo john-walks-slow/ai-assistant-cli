@@ -6,3 +6,4 @@ dist
 /.mai-history
 /.mai-history.json
 .git
+/package-lock.json
