@@ -1,4 +1,3 @@
-
 node_modules
 dist
 /plan
@@ -7,3 +6,4 @@ dist
 /.mai-history.json
 .git
 /package-lock.json
+.aider*

@@ -1,28 +1,28 @@
-import axios, { AxiosError } from 'axios';
-import * as fs from 'fs/promises';
-import { CliStyle } from './cli-style';
-import { getApiEndpoint, getApiKey, getCurrentModel, getCurrentModelName } from './config-manager';
+import axios, { AxiosError } from 'axios'
+import * as fs from 'fs/promises'
+import { CliStyle } from './cli-style'
+import { getApiEndpoint, getApiKey, getCurrentModel, getCurrentModelName } from './config-manager'
 
 /**
  * 延迟执行指定毫秒数。
  * @param ms - 等待的毫秒数。
  */
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * AI API响应中的单个选择。
  */
 interface AiChoice {
   message: {
-    content: string;
-  };
+    content: string
+  }
 }
 
 /**
  * AI API响应的整体结构。
  */
 interface AiApiResponse {
-  choices: AiChoice[];
+  choices: AiChoice[]
 }
 
 /**
@@ -36,11 +36,11 @@ export class AxiosNetwork {
    * @returns 返回一个 Promise，成功时解析为服务器响应的 JSON 对象。
    */
   static async invoke<T = any>(options: {
-    uri: string;
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-    headers?: Record<string, string>;
-    body?: Record<string, any> | any[];
-    timeout?: number; // 超时时间 (毫秒)，默认为 60000 ms
+    uri: string
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+    headers?: Record<string, string>
+    body?: Record<string, any> | any[]
+    timeout?: number // 超时时间 (毫秒)，默认为 60000 ms
   }): Promise<T> {
     const {
       uri,
@@ -48,13 +48,13 @@ export class AxiosNetwork {
       headers = {},
       body,
       timeout = 300000, // 默认五分钟超时
-    } = options;
+    } = options
 
     // 构造请求配置
     const finalHeaders = {
       'Content-Type': 'application/json;charset=utf-8',
       ...headers,
-    };
+    }
 
     const config = {
       url: uri,
@@ -62,22 +62,22 @@ export class AxiosNetwork {
       headers: finalHeaders,
       data: body ? JSON.stringify(body) : undefined,
       timeout,
-    };
+    }
 
     try {
-      const response = await axios(config);
+      const response = await axios(config)
       if (response.status === 204) {
         // 对于 204 No Content 等情况，返回 null
-        return null as any;
+        return null as any
       }
-      return response.data;
+      return response.data
     } catch (error) {
       if (error instanceof AxiosError) {
-        const axiosError = error as AxiosError;
-        const errorMessage = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message;
-        throw new Error(`Axios request failed with status ${axiosError.response?.status || 'unknown'}: ${errorMessage}`);
+        const axiosError = error as AxiosError
+        const errorMessage = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message
+        throw new Error(`Axios request failed with status ${axiosError.response?.status || 'unknown'}: ${errorMessage}`)
       } else {
-        throw new Error(`Unexpected error: ${String(error)}`);
+        throw new Error(`Unexpected error: ${String(error)}`)
       }
     }
   }
@@ -93,20 +93,20 @@ export class AxiosNetwork {
  * @throws {Error} 如果AI请求失败。
  */
 export async function getAiResponse(messages: { role: string; content: string }[], retries = 3, model?: string, temperature?: number): Promise<string> {
-  const modelName = model || await getCurrentModelName(); // Use specified model or fallback to current
+  const modelName = model || await getCurrentModelName() // Use specified model or fallback to current
   const payload: any = {
     model: modelName,
     messages,
-  };
+  }
 
   // 如果提供了temperature，则添加到payload
   if (temperature !== undefined) {
-    payload.temperature = temperature;
+    payload.temperature = temperature
   }
 
-  CliStyle.printDebug('--- 原始AI请求负载 ---');
-  CliStyle.printDebugContent(JSON.stringify(payload, null, 2));
-  CliStyle.printDebug('-------------------------------------');
+  CliStyle.printDebug('--- 原始AI请求负载 ---')
+  CliStyle.printDebugContent(JSON.stringify(payload, null, 2))
+  CliStyle.printDebug('-------------------------------------')
 
   for (let i = 0; i < retries; i++) {
     try {
@@ -117,30 +117,29 @@ export async function getAiResponse(messages: { role: string; content: string }[
           Authorization: `Bearer ${await getApiKey(model)}`, // Use centralized getApiKey with model
         },
         body: payload,
+      })
 
-      });
-
-      CliStyle.printDebug('--- 原始AI响应负载 ---');
-      CliStyle.printDebugContent(aiResponse.choices[0].message.content.trim());
-      CliStyle.printDebug('-------------------------------------');
+      CliStyle.printDebug('--- 原始AI响应负载 ---')
+      CliStyle.printDebugContent(aiResponse.choices[0].message.content.trim())
+      CliStyle.printDebug('-------------------------------------')
       if (aiResponse.choices && aiResponse.choices.length > 0 && aiResponse.choices[0].message?.content) {
-        return aiResponse.choices[0].message.content.trim();
+        return aiResponse.choices[0].message.content.trim()
       } else {
-        console.error('错误：AI响应格式不符合预期。', JSON.stringify(aiResponse));
-        throw new Error('无效的AI响应格式。');
+        console.error('错误：AI响应格式不符合预期。', JSON.stringify(aiResponse))
+        throw new Error('无效的AI响应格式。')
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`第 ${i + 1} 次尝试（共 ${retries} 次）失败。`, errorMessage);
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error(`第 ${i + 1} 次尝试（共 ${retries} 次）失败。`, errorMessage)
       if (i === retries - 1) {
-        console.error('最后一次尝试失败。中止。');
-        throw error;
+        console.error('最后一次尝试失败。中止。')
+        throw error
       }
-      const backoffTime = 2 ** i;
-      console.warn(`将在 ${backoffTime} 秒后重试...`);
-      await delay(1000 * backoffTime);
+      const backoffTime = 2 ** i
+      console.warn(`将在 ${backoffTime} 秒后重试...`)
+      await delay(1000 * backoffTime)
     }
   }
 
-  throw new Error('AI请求在所有重试后失败。');
+  throw new Error('AI请求在所有重试后失败。')
 }
