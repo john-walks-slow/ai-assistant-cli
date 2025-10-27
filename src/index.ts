@@ -35,26 +35,26 @@ program
   .argument('[prompt]', '提示词。')
   .argument(
     '[files...]',
-    '作为上下文的文件。支持glob如 "src/**"。支持指定行数范围如 "src/file.ts:10-20"。'
+    '作为上下文的文件。支持glob如 "src/**"。支持指定行数范围如 "src/file.ts:10-20"。',
   )
   .option('-y, --auto-apply', '自动应用计划，无需用户确认（假设计划正确）。')
   .option(
     '-r, --history <ids>',
-    '引用历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。'
+    '引用历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。',
   )
   .option(
     '-d, --history-depth <number>',
-    '历史深度，自动加载最近 N 条历史（默认从配置或 0）。'
+    '历史深度，自动加载最近 N 条历史（默认从配置或 0）。',
   )
   .option('-c, --chat', '忽略系统提示词，使用空提示。')
   .option(
     '-a, --auto-context',
-    '启用自动上下文准备，使用 AI 收集相关文件上下文。'
+    '启用自动上下文准备，使用 AI 收集相关文件上下文。',
   )
   .option('-m, --model <model>', '指定使用的AI模型，覆盖默认配置。')
   .option(
     '-t, --temperature <number>',
-    '指定AI模型的temperature参数，控制输出的随机性 (0-2)。'
+    '指定AI模型的temperature参数，控制输出的随机性 (0-2)。',
   )
   .action(
     async (
@@ -68,7 +68,7 @@ program
         historyDepth?: string;
         model?: string;
         temperature?: string;
-      }
+      },
     ) => {
       let actualPrompt: string;
       let systemToUse: string | undefined = undefined;
@@ -135,8 +135,8 @@ program
           } else {
             console.log(
               CliStyle.warning(
-                `无效的历史深度: ${options.historyDepth}，忽略。`
-              )
+                `无效的历史深度: ${options.historyDepth}，忽略。`,
+              ),
             );
           }
         }
@@ -154,8 +154,8 @@ program
           } else {
             console.log(
               CliStyle.warning(
-                `无效的temperature值: ${options.temperature}，必须在0-2之间，忽略。`
-              )
+                `无效的temperature值: ${options.temperature}，必须在0-2之间，忽略。`,
+              ),
             );
           }
         }
@@ -170,7 +170,7 @@ program
             autoContext,
             autoApply,
             model,
-            temperature
+            temperature,
           );
         } else {
           await processRequest(
@@ -182,7 +182,7 @@ program
             autoContext,
             autoApply,
             model,
-            temperature
+            temperature,
           );
         }
       } catch (error) {
@@ -190,12 +190,12 @@ program
           CliStyle.error(
             `\n发生严重错误: ${
               error instanceof Error ? error.message : String(error)
-            }`
-          )
+            }`,
+          ),
         );
         process.exit(1);
       }
-    }
+    },
   );
 
 /**
@@ -204,7 +204,7 @@ program
 program
   .command('exec-plan <planSource>')
   .description(
-    '从文件路径或直接字符串执行给定计划。支持 JSON 和定界（delimited）两种格式。'
+    '从文件路径或直接字符串执行给定计划。支持 JSON 和定界（delimited）两种格式。',
   )
   .action(async (planSource: string, options, command: Command) => {
     const allOptions = command.optsWithGlobals();
@@ -230,8 +230,8 @@ program
         // 如果它不是直接字符串内容，并且也不是一个可读文件，那么这是一个错误。
         console.error(
           CliStyle.error(
-            `\n错误: 无法将 '${planSource}' 作为文件读取，且它不符合直接 JSON 或定界字符串格式。`
-          )
+            `\n错误: 无法将 '${planSource}' 作为文件读取，且它不符合直接 JSON 或定界字符串格式。`,
+          ),
         );
         process.exit(1);
       }
@@ -246,15 +246,15 @@ program
         planContent,
         `手动执行计划来源: ${planSource}`,
         autoApply,
-        []
+        [],
       );
     } catch (error) {
       console.error(
         CliStyle.error(
           `\n执行计划失败: ${
             error instanceof Error ? error.message : String(error)
-          }`
-        )
+          }`,
+        ),
       );
       process.exit(1);
     }
@@ -272,42 +272,42 @@ program
       .option('-f, --file-only', '只显示包含文件操作的历史记录。')
       .action(async (options) => {
         await listHistory(options.fileOnly);
-      })
+      }),
   )
   .addCommand(
     new Command('undo')
       .description('撤销指定的历史记录所做的更改，而不删除该历史记录。')
       .addArgument(
-        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）')
+        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）'),
       )
       .action(async (idOrName: string) => {
         await undoHistory(idOrName);
-      })
+      }),
   )
   .addCommand(
     new Command('redo')
       .description('重新应用指定的历史记录所做的更改，而不删除历史记录。')
       .addArgument(
-        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）')
+        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）'),
       )
       .action(async (idOrName: string) => {
         await redoHistory(idOrName);
-      })
+      }),
   )
   .addCommand(
     new Command('delete')
       .description('删除指定的历史记录。')
       .addArgument(
-        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）')
+        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）'),
       )
       .action(async (idOrName: string) => {
         await deleteHistory(idOrName);
-      })
+      }),
   )
   .addCommand(
     new Command('clear').description('清除所有历史记录。').action(async () => {
       await clearHistory();
-    })
+    }),
   );
 /**
  * 定义 'template' 命令，用于管理和应用提示模板。
@@ -320,7 +320,7 @@ program
       .description('列出所有可用的提示模板。')
       .action(async () => {
         await listTemplates();
-      })
+      }),
   )
   .addCommand(
     new Command('show')
@@ -328,7 +328,7 @@ program
       .description('显示指定提示模板的详细信息。')
       .action(async (name: string) => {
         await showTemplate(name);
-      })
+      }),
   )
   .addCommand(
     new Command('apply')
@@ -342,12 +342,12 @@ program
           name: string,
           files: string[],
           options: { input?: string; selection?: string },
-          command: Command
+          command: Command,
         ) => {
           const allOptions = command.optsWithGlobals();
           await applyTemplate(name, files, allOptions);
-        }
-      )
+        },
+      ),
   );
 
 /**
@@ -361,12 +361,12 @@ program
       .description('列出所有可用的AI模型，并显示当前选中。')
       .action(async () => {
         await listAvailableModels();
-      })
+      }),
   )
   .addCommand(
     new Command('select').description('交互式选择AI模型。').action(async () => {
       await selectModelInteractive();
-    })
+    }),
   );
 
 /**
@@ -378,12 +378,12 @@ program
   .addCommand(
     new Command('list').description('列出当前配置。').action(async () => {
       await listConfig();
-    })
+    }),
   )
   .addCommand(
     new Command('set')
       .description(
-        '直接设置配置项。使用: mai config set <key> <value> (如 mai config set model x-ai/grok-code-fast-1)'
+        '直接设置配置项。使用: mai config set <key> <value> (如 mai config set model x-ai/grok-code-fast-1)',
       )
       .argument('<key>', '配置键 (如 model, systemPrompt, historyDepth)')
       .argument('<value>', '配置值')
@@ -391,14 +391,14 @@ program
       .action(async (key: string, value: string) => {
         console.log(CliStyle.info(`设置 ${key} = ${value}`));
         await directSetConfig(key, value);
-      })
+      }),
   )
   .addCommand(
     new Command('reset')
       .description('重置所有配置到默认值。')
       .action(async () => {
         await resetConfig();
-      })
+      }),
   );
 
 program.parse(process.argv);

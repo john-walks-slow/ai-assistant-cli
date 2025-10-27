@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-export const OperationTypeSchema = z.enum(['response', 'create', 'writeWithReplace', 'move', 'delete']);
+export const OperationTypeSchema = z.enum([
+  'response',
+  'create',
+  'writeWithReplace',
+  'move',
+  'delete',
+]);
 
 export const BaseOperationSchema = z.object({
   type: OperationTypeSchema,
@@ -91,13 +97,18 @@ export function validateOperations(operations: unknown[]): ValidationResult {
     return { isValid: false, errors: ['Operations must be an array'] };
   }
 
-  const results = operations.map((op, index) => {
-    const result = validateOperation(op);
-    if (!result.isValid) {
-      return { index, errors: result.errors?.map((e) => `Operation ${index}: ${e}`) || [] };
-    }
-    return null;
-  }).filter(Boolean);
+  const results = operations
+    .map((op, index) => {
+      const result = validateOperation(op);
+      if (!result.isValid) {
+        return {
+          index,
+          errors: result.errors?.map((e) => `Operation ${index}: ${e}`) || [],
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
 
   if (results.length > 0) {
     const errors = results.flatMap((r) => r!.errors);
@@ -127,11 +138,13 @@ export type CreateOperation = z.infer<typeof CreateOperationSchema>;
 /**
  * writeWithReplace 操作类型
  */
-export type writeWithReplaceOperation = z.infer<typeof writeWithReplaceOperationSchema>;
+export type writeWithReplaceOperation = z.infer<
+  typeof writeWithReplaceOperationSchema
+>;
 
 /**
-  * Move 操作类型
-  */
+ * Move 操作类型
+ */
 export type MoveOperation = z.infer<typeof MoveOperationSchema>;
 
 /**

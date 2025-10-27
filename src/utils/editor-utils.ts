@@ -17,10 +17,17 @@ export async function openInEditor(content: string): Promise<string> {
 
   try {
     await fs.writeFile(tempFilePath, content, 'utf8');
-    await runProcess(editor, ['--folder-uri', projectRoot, '--wait', tempFilePath]);
+    await runProcess(editor, [
+      '--folder-uri',
+      projectRoot,
+      '--wait',
+      tempFilePath,
+    ]);
     return await fs.readFile(tempFilePath, 'utf8');
   } finally {
-    await fs.unlink(tempFilePath).catch(() => { /* 清理时忽略错误 */ });
+    await fs.unlink(tempFilePath).catch(() => {
+      /* 清理时忽略错误 */
+    });
   }
 }
 
@@ -32,14 +39,25 @@ export async function openInEditor(content: string): Promise<string> {
  * @param fileNameHint - 可选，用于临时文件名的提示，例如 "my-file.ts"。
  * @returns 用户编辑并保存后的新内容，如果没有保存更改则返回 `null`。
  */
-export async function showDiffInVsCode(originalContent: string, newContent: string, fileNameHint?: string): Promise<string | null> {
+export async function showDiffInVsCode(
+  originalContent: string,
+  newContent: string,
+  fileNameHint?: string,
+): Promise<string | null> {
   const tempDir = path.join(process.cwd(), '.ai-temp');
-  await fs.mkdir(tempDir, { recursive: true }).catch(() => { /* 忽略已存在错误 */ });
+  await fs.mkdir(tempDir, { recursive: true }).catch(() => {
+    /* 忽略已存在错误 */
+  });
   const timestamp = Date.now();
-  const baseName = fileNameHint ? path.basename(fileNameHint, path.extname(fileNameHint)) : 'mai';
+  const baseName = fileNameHint
+    ? path.basename(fileNameHint, path.extname(fileNameHint))
+    : 'mai';
   const extName = fileNameHint ? path.extname(fileNameHint) : '.tmp';
 
-  const originalPath = path.join(tempDir, `${baseName}-original-${timestamp}${extName}`);
+  const originalPath = path.join(
+    tempDir,
+    `${baseName}-original-${timestamp}${extName}`,
+  );
   const newPath = path.join(tempDir, `${baseName}-new-${timestamp}${extName}`);
   const editor = 'code'; // 硬编码为VS Code
   const projectRoot = process.cwd();
@@ -49,7 +67,11 @@ export async function showDiffInVsCode(originalContent: string, newContent: stri
     await fs.writeFile(newPath, newContent, 'utf8'); // 写入AI提议的内容到新文件
     await runProcess(editor, [
       //'--folder-uri', projectRoot,
-      '--diff', '--wait', originalPath, newPath]);
+      '--diff',
+      '--wait',
+      originalPath,
+      newPath,
+    ]);
 
     // 读取用户可能已修改的newPath内容
     const editedContent = await fs.readFile(newPath, 'utf8');
@@ -63,14 +85,20 @@ export async function showDiffInVsCode(originalContent: string, newContent: stri
       return null;
     }
   } catch (error) {
-    console.error(CliStyle.error('打开VS Code差异时出错。`code`命令是否在您的PATH中？'));
+    console.error(
+      CliStyle.error('打开VS Code差异时出错。`code`命令是否在您的PATH中？'),
+    );
     console.error(CliStyle.error(String(error)));
     return null; // 发生错误时返回null
   } finally {
     // 清理临时文件
     await Promise.all([
-      fs.unlink(originalPath).catch(() => { /* 清理时忽略错误 */ }),
-      fs.unlink(newPath).catch(() => { /* 清理时忽略错误 */ })
+      fs.unlink(originalPath).catch(() => {
+        /* 清理时忽略错误 */
+      }),
+      fs.unlink(newPath).catch(() => {
+        /* 清理时忽略错误 */
+      }),
     ]);
   }
 }
@@ -83,7 +111,10 @@ export async function showDiffInVsCode(originalContent: string, newContent: stri
  */
 function runProcess(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const childProcess = spawn(command, args, { stdio: 'inherit', shell: true });
+    const childProcess = spawn(command, args, {
+      stdio: 'inherit',
+      shell: true,
+    });
     childProcess.on('exit', (code) => {
       if (code === 0) {
         resolve();

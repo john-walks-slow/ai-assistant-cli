@@ -3,6 +3,7 @@
 ## 介绍
 
 ### 功能概述
+
 Auto-Context 是 MAI 的一个可选扩展。他是一个自动化上下文准备代理（Context-Agent），旨在为 AI 编码任务自动收集和准备足够的项目上下文。
 
 - **触发方式**：默认行为保持不变：手动文件指定。通过 CLI 选项 `-a` 或 `--auto-context` 激活。
@@ -15,6 +16,7 @@ Auto-Context 是 MAI 的一个可选扩展。他是一个自动化上下文准�
 ## 架构概述
 
 ### 整体流程集成
+
 1. **CLI 入口** (`src/index.ts`)：
    - 增加 `-a/--auto-context` 选项。
 
@@ -30,20 +32,23 @@ Auto-Context 是 MAI 的一个可选扩展。他是一个自动化上下文准�
    - 工具：使用 `getAiResponse` 调用 AI；需要新开发高效的、适合AI阅读的，用于获取项目结构、搜索内容的工具。
 
 ### 数据结构
+
 - **FileContextItem** (现有 + 扩展)：
   ```typescript
   interface FileContextItem {
     path: string;
     comment?: string;
-    start?: number;         // auto-context 场景不使用
-    end?: number;           // auto-context 场景不使用
+    start?: number; // auto-context 场景不使用
+    end?: number; // auto-context 场景不使用
   }
   ```
 
 ## Context-Agent 设计
 
 ### 多轮检索逻辑
+
 Context-Agent 使用迭代 AI 调用逐步细化上下文，直到“足够”完成任务。每个轮次：
+
 1. **初始化**：第一轮提供项目目录树结构。
 2. **AI 查询**：构建系统提示 + 用户提示，请求 AI 建议相关文件/comment。
    - 系统提示示例：

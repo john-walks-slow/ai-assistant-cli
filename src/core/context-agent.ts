@@ -1,9 +1,14 @@
 import fs from 'fs/promises';
-import { CliStyle } from "../utils/cli-style";
-import { getAutoContextConfig } from "../utils/config-manager";
-import { listFilesInDirectory, advancedSearchFiles, getProjectOverview, validateFilePaths } from "../utils/file-utils";
-import { getAiResponse } from "../utils/network";
-import { FileContextItem } from "./file-context";
+import { CliStyle } from '../utils/cli-style';
+import { getAutoContextConfig } from '../utils/config-manager';
+import {
+  listFilesInDirectory,
+  advancedSearchFiles,
+  getProjectOverview,
+  validateFilePaths,
+} from '../utils/file-utils';
+import { getAiResponse } from '../utils/network';
+import { FileContextItem } from './file-context';
 
 interface AiContextSuggestion {
   reasoning: string;
@@ -23,9 +28,13 @@ interface ActionSuggestion {
   };
 }
 
-async function parseContextAgentResponse(aiResponse: string): Promise<AiContextSuggestion> {
+async function parseContextAgentResponse(
+  aiResponse: string,
+): Promise<AiContextSuggestion> {
   try {
-    const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/);
+    const jsonMatch = aiResponse.match(
+      /```json\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/,
+    );
     if (jsonMatch) {
       const jsonString = jsonMatch[1] || jsonMatch[2];
       const parsed = JSON.parse(jsonString);
@@ -35,13 +44,15 @@ async function parseContextAgentResponse(aiResponse: string): Promise<AiContextS
         suggestedActions: parsed.suggestedActions || [],
       };
     }
-    throw new Error("No valid JSON block found in the AI response.");
+    throw new Error('No valid JSON block found in the AI response.');
   } catch (e) {
-    console.log(CliStyle.error(`Failed to parse AI response: ${(e as Error).message}`));
+    console.log(
+      CliStyle.error(`Failed to parse AI response: ${(e as Error).message}`),
+    );
     return {
-      reasoning: "Critical error: Failed to parse the last AI response.",
+      reasoning: 'Critical error: Failed to parse the last AI response.',
       sufficient: false,
-      suggestedActions: []
+      suggestedActions: [],
     };
   }
 }
@@ -50,13 +61,16 @@ async function parseContextAgentResponse(aiResponse: string): Promise<AiContextS
  * Creates a context item placeholder for a file, without reading its content.
  * This is used by the 'addFile' action.
  */
-function createFileContextPlaceholder(filePath: string, reason: string): FileContextItem {
+function createFileContextPlaceholder(
+  filePath: string,
+  reason: string,
+): FileContextItem {
   return {
     path: filePath,
     comment: `File added to context. Reason: ${reason}`,
     content: undefined, // Content is explicitly not read here
     start: undefined,
-    end: undefined
+    end: undefined,
   };
 }
 
@@ -66,13 +80,16 @@ function createFileContextPlaceholder(filePath: string, reason: string): FileCon
  * @param currentContext The current list of context items, needed for 'readFile'.
  * @returns A promise that resolves to an array of new or updated FileContextItem objects.
  */
-async function executeSuggestedAction(action: ActionSuggestion, currentContext: FileContextItem[]): Promise<FileContextItem[]> {
+async function executeSuggestedAction(
+  action: ActionSuggestion,
+  currentContext: FileContextItem[],
+): Promise<FileContextItem[]> {
   try {
     switch (action.type) {
       case 'addFile': {
         const { path } = action.params;
         if (!path) throw new Error('path is missing for addFile');
-        if (currentContext.some(item => item.path === path)) {
+        if (currentContext.some((item) => item.path === path)) {
           console.log(CliStyle.info(`--> File ${path} is already in context.`));
           return [];
         }
@@ -83,11 +100,13 @@ async function executeSuggestedAction(action: ActionSuggestion, currentContext: 
         const { path } = action.params;
         if (!path) throw new Error('path is missing for readFile');
 
-        const existingItem = currentContext.find(item => item.path === path);
+        const existingItem = currentContext.find((item) => item.path === path);
 
         // If item exists and content is already read, do nothing.
         if (existingItem?.content) {
-          console.log(CliStyle.info(`--> Content for ${path} has already been read.`));
+          console.log(
+            CliStyle.info(`--> Content for ${path} has already been read.`),
+          );
           return [];
         }
 
@@ -101,26 +120,40 @@ async function executeSuggestedAction(action: ActionSuggestion, currentContext: 
           ? `Full content read. Reason: ${reason}`
           : `File read and added to context. Reason: ${reason}`;
 
-        return [{
-          path: path,
-          content: content,
-          comment: comment,
-          // Preserve existing start/end if the item was a search result snippet
-          start: existingItem?.start,
-          end: existingItem?.end,
-        }];
+        return [
+          {
+            path: path,
+            content: content,
+            comment: comment,
+            // Preserve existing start/end if the item was a search result snippet
+            start: existingItem?.start,
+            end: existingItem?.end,
+          },
+        ];
       }
 
       case 'fileList': {
         const { path = '.', recursive = true, filePattern } = action.params;
         const files = await listFilesInDirectory(path, recursive, filePattern);
-        return files.map(f => createFileContextPlaceholder(f, `Listed from directory: ${path}`));
+        return files.map((f) =>
+          createFileContextPlaceholder(f, `Listed from directory: ${path}`),
+        );
       }
 
       case 'contentSearch': {
-        const { path = '.', regex, filePattern, contextLines = 3 } = action.params;
+        const {
+          path = '.',
+          regex,
+          filePattern,
+          contextLines = 3,
+        } = action.params;
         if (!regex) throw new Error('regex is missing for contentSearch');
-        return await advancedSearchFiles(path, regex, filePattern, contextLines);
+        return await advancedSearchFiles(
+          path,
+          regex,
+          filePattern,
+          contextLines,
+        );
       }
 
       // 'removeFile' is handled directly in the main loop and does not return items.
@@ -128,12 +161,18 @@ async function executeSuggestedAction(action: ActionSuggestion, currentContext: 
         return [];
     }
   } catch (err) {
-    console.log(CliStyle.warning(`Execution failed for action ${action.type}: ${(err as Error).message}`));
+    console.log(
+      CliStyle.warning(
+        `Execution failed for action ${action.type}: ${(err as Error).message}`,
+      ),
+    );
   }
   return [];
 }
 
-export async function prepareAutoContext(userPrompt: string): Promise<FileContextItem[]> {
+export async function prepareAutoContext(
+  userPrompt: string,
+): Promise<FileContextItem[]> {
   const { maxRounds, maxFiles } = await getAutoContextConfig();
 
   let currentContextItems: FileContextItem[] = [];
@@ -141,67 +180,114 @@ export async function prepareAutoContext(userPrompt: string): Promise<FileContex
   let sufficient = false;
 
   const systemPrompt = await getContextAgentSystemPrompt();
-  const messages: { role: string; content: string; }[] = [{ role: 'system', content: systemPrompt }];
+  const messages: { role: string; content: string }[] = [
+    { role: 'system', content: systemPrompt },
+  ];
 
   for (let round = 1; round <= maxRounds && !sufficient; round++) {
-    console.log(CliStyle.info(`\n===== Auto Context Round ${round}/${maxRounds} =====`));
+    console.log(
+      CliStyle.info(`\n===== Auto Context Round ${round}/${maxRounds} =====`),
+    );
 
     const userPromptForAi = buildUserPromptForContextAgent(
       userPrompt,
       projectKnowledgeBase,
       currentContextItems,
-      round
+      round,
     );
 
     messages.push({ role: 'user', content: userPromptForAi });
 
     const aiResponse = await getAiResponse(messages);
-    console.log(CliStyle.debug(`AI Raw Response (Round ${round}): ${aiResponse}`));
+    console.log(
+      CliStyle.debug(`AI Raw Response (Round ${round}): ${aiResponse}`),
+    );
     messages.push({ role: 'assistant', content: aiResponse });
 
     const suggestion = await parseContextAgentResponse(aiResponse);
-    console.log(CliStyle.info(`AI Plan (Round ${round}):\n${JSON.stringify(suggestion, null, 2)}`));
-    console.log(CliStyle.info(`AI's current reasoning: ${suggestion.reasoning || "No reasoning provided."}`));
+    console.log(
+      CliStyle.info(
+        `AI Plan (Round ${round}):\n${JSON.stringify(suggestion, null, 2)}`,
+      ),
+    );
+    console.log(
+      CliStyle.info(
+        `AI's current reasoning: ${suggestion.reasoning || 'No reasoning provided.'}`,
+      ),
+    );
 
     sufficient = suggestion.sufficient;
     if (sufficient) {
-      console.log(CliStyle.success(`AI has determined the context is sufficient. Reason: ${suggestion.reasoning || "No specific reason provided."}`));
+      console.log(
+        CliStyle.success(
+          `AI has determined the context is sufficient. Reason: ${suggestion.reasoning || 'No specific reason provided.'}`,
+        ),
+      );
       break;
     }
 
-    if (!suggestion.suggestedActions || suggestion.suggestedActions.length === 0) {
-      console.log(CliStyle.warning(`AI did not suggest any actions. Ending process.`));
+    if (
+      !suggestion.suggestedActions ||
+      suggestion.suggestedActions.length === 0
+    ) {
+      console.log(
+        CliStyle.warning(`AI did not suggest any actions. Ending process.`),
+      );
       break;
     }
 
     for (const action of suggestion.suggestedActions) {
-      console.log(CliStyle.info(`Executing AI action: ${action.type} - ${JSON.stringify(action.params)}`));
+      console.log(
+        CliStyle.info(
+          `Executing AI action: ${action.type} - ${JSON.stringify(action.params)}`,
+        ),
+      );
 
       if (action.type === 'removeFile') {
         const { path } = action.params;
         if (path) {
           const beforeCount = currentContextItems.length;
-          currentContextItems = currentContextItems.filter(item => item.path !== path);
-          console.log(CliStyle.info(`--> Removed ${beforeCount - currentContextItems.length} items matching ${path}`));
+          currentContextItems = currentContextItems.filter(
+            (item) => item.path !== path,
+          );
+          console.log(
+            CliStyle.info(
+              `--> Removed ${beforeCount - currentContextItems.length} items matching ${path}`,
+            ),
+          );
         }
         continue;
       }
 
-      const actionResults = await executeSuggestedAction(action, currentContextItems);
+      const actionResults = await executeSuggestedAction(
+        action,
+        currentContextItems,
+      );
 
       if (actionResults.length > 0) {
-        console.log(CliStyle.success(`--> Found/updated ${actionResults.length} items from action.`));
+        console.log(
+          CliStyle.success(
+            `--> Found/updated ${actionResults.length} items from action.`,
+          ),
+        );
 
         for (const resultItem of actionResults) {
-          const existingItemIndex = currentContextItems.findIndex(item => item.path === resultItem.path && item.start === resultItem.start);
+          const existingItemIndex = currentContextItems.findIndex(
+            (item) =>
+              item.path === resultItem.path && item.start === resultItem.start,
+          );
 
           if (existingItemIndex !== -1) {
             // This handles updates, e.g., from 'readFile'
-            console.log(CliStyle.info(`--> Updating context for ${resultItem.path}`));
+            console.log(
+              CliStyle.info(`--> Updating context for ${resultItem.path}`),
+            );
             currentContextItems[existingItemIndex] = resultItem;
           } else {
             // This handles new additions from 'addFile', 'fileList', 'contentSearch'
-            if (!currentContextItems.some(item => item.path === resultItem.path)) {
+            if (
+              !currentContextItems.some((item) => item.path === resultItem.path)
+            ) {
               currentContextItems.push(resultItem);
             }
           }
@@ -209,20 +295,32 @@ export async function prepareAutoContext(userPrompt: string): Promise<FileContex
       }
 
       if (currentContextItems.length > maxFiles) {
-        console.log(CliStyle.warning(`Context limit (${maxFiles}) reached. Exiting.`));
+        console.log(
+          CliStyle.warning(`Context limit (${maxFiles}) reached. Exiting.`),
+        );
         break;
       }
     }
 
-    console.log(CliStyle.info(`Current context items: ${currentContextItems.length}`));
+    console.log(
+      CliStyle.info(`Current context items: ${currentContextItems.length}`),
+    );
   }
 
   if (!sufficient) {
-    console.log(CliStyle.warning(`Max rounds (${maxRounds}) reached, but AI did not confirm context sufficiency.`));
+    console.log(
+      CliStyle.warning(
+        `Max rounds (${maxRounds}) reached, but AI did not confirm context sufficiency.`,
+      ),
+    );
   }
 
   const validItems = await validateFilePaths(currentContextItems);
-  console.log(CliStyle.success(`\n===== Auto Context Complete: Collected ${validItems.length} valid items =====`));
+  console.log(
+    CliStyle.success(
+      `\n===== Auto Context Complete: Collected ${validItems.length} valid items =====`,
+    ),
+  );
   return validItems;
 }
 
@@ -230,7 +328,7 @@ function buildUserPromptForContextAgent(
   task: string,
   projectKnowledge: string,
   currentFiles: FileContextItem[],
-  round: number
+  round: number,
 ): string {
   let prompt = `**User's Primary Task:**\n"${task}"\n\n`;
 
@@ -241,10 +339,12 @@ function buildUserPromptForContextAgent(
   } else {
     prompt += `**Conversation History is available. Current round: ${round}.**\n\n`;
     if (currentFiles.length > 0) {
-      const contextComment = currentFiles.map(item => {
-        const status = item.content ? '[Content Read]' : '[Path Only]';
-        return `- ${status} ${item.path}${item.start ? ` (lines ${item.start}-${item.end})` : ''}: ${item.comment || 'Content snippet'}`;
-      }).join('\n');
+      const contextComment = currentFiles
+        .map((item) => {
+          const status = item.content ? '[Content Read]' : '[Path Only]';
+          return `- ${status} ${item.path}${item.start ? ` (lines ${item.start}-${item.end})` : ''}: ${item.comment || 'Content snippet'}`;
+        })
+        .join('\n');
       prompt += `**Current Collected Context Comment:**\n${contextComment}\n\n`;
     } else {
       prompt += `No context has been collected yet.\n\n`;

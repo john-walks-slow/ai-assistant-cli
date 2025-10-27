@@ -13,7 +13,9 @@ async function walkTidy() {
   const patterns = process.argv.slice(2); // 获取命令行参数中的模式列表
 
   if (patterns.length === 0) {
-    console.error('错误: 未提供任何文件或模式。请传入要处理的文件的路径、文件夹或 glob 模式。');
+    console.error(
+      '错误: 未提供任何文件或模式。请传入要处理的文件的路径、文件夹或 glob 模式。',
+    );
     process.exit(1);
   }
 
@@ -26,14 +28,22 @@ async function walkTidy() {
       const stat = await fs.stat(pattern);
       if (stat.isDirectory()) {
         // 如果是目录，使用递归 glob
-        const matchedFiles = await glob(`${pattern}/**/*`, { dot: true, absolute: true, windowsPathsNoEscape: true });
-        matchedFiles.forEach(file => allFiles.add(file));
+        const matchedFiles = await glob(`${pattern}/**/*`, {
+          dot: true,
+          absolute: true,
+          windowsPathsNoEscape: true,
+        });
+        matchedFiles.forEach((file) => allFiles.add(file));
       } else {
         // 如果是文件或 glob 模式
         const hasGlobChars = /[*?[\]]/.test(pattern);
         if (hasGlobChars) {
-          const matchedFiles = await glob(pattern, { dot: true, absolute: true, windowsPathsNoEscape: true });
-          matchedFiles.forEach(file => allFiles.add(file));
+          const matchedFiles = await glob(pattern, {
+            dot: true,
+            absolute: true,
+            windowsPathsNoEscape: true,
+          });
+          matchedFiles.forEach((file) => allFiles.add(file));
         } else {
           // 单个文件
           allFiles.add(pattern);
@@ -42,10 +52,16 @@ async function walkTidy() {
     } catch (error) {
       // 如果 stat 失败，尝试作为 glob 处理
       try {
-        const matchedFiles = await glob(pattern, { dot: true, absolute: true, windowsPathsNoEscape: true });
-        matchedFiles.forEach(file => allFiles.add(file));
+        const matchedFiles = await glob(pattern, {
+          dot: true,
+          absolute: true,
+          windowsPathsNoEscape: true,
+        });
+        matchedFiles.forEach((file) => allFiles.add(file));
       } catch (globError) {
-        console.error(`处理模式 '${pattern}' 时出错: ${(error as Error).message}`);
+        console.error(
+          `处理模式 '${pattern}' 时出错: ${(error as Error).message}`,
+        );
       }
     }
   }
@@ -64,7 +80,9 @@ async function walkTidy() {
       const command = `mai template apply tidy -y "${file}"`;
       console.log(`执行命令: ${command}`);
 
-      const { stdout, stderr } = await execAsync(command, { cwd: process.cwd() });
+      const { stdout, stderr } = await execAsync(command, {
+        cwd: process.cwd(),
+      });
 
       if (stdout) {
         console.log('输出:', stdout);

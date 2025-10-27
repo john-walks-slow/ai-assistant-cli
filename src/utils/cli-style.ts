@@ -4,7 +4,6 @@ import chalk from 'chalk';
  * 集中所有控制台输出样式、打印和格式化的工具类。
  */
 export class CliStyle {
-
   /**
    * 返回蓝色的信息消息。
    * @param message - 要设置样式的消息。
@@ -69,7 +68,8 @@ export class CliStyle {
     return chalk.gray(`[DEBUG] ${message}`);
   }
 
-  private static enableDebug = process.env.IS_MAI_DEBUG?.toLowerCase() === 'true';
+  private static enableDebug =
+    process.env.IS_MAI_DEBUG?.toLowerCase() === 'true';
 
   /**
    * 打印调试消息，如果调试启用。
@@ -105,12 +105,18 @@ export class CliStyle {
    */
   static operationType(type: string): string {
     switch (type) {
-      case 'create': return chalk.green('创建');
-      case 'edit': return chalk.blue('编辑');
-      case 'writeWithReplace': return chalk.blue('编辑替换');
-      case 'rename': return chalk.magenta('重命名');
-      case 'delete': return chalk.red('删除');
-      default: return chalk.white(type.toUpperCase());
+      case 'create':
+        return chalk.green('创建');
+      case 'edit':
+        return chalk.blue('编辑');
+      case 'writeWithReplace':
+        return chalk.blue('编辑替换');
+      case 'rename':
+        return chalk.magenta('重命名');
+      case 'delete':
+        return chalk.red('删除');
+      default:
+        return chalk.white(type.toUpperCase());
     }
   }
 
@@ -164,37 +170,71 @@ export class CliStyle {
     let rendered = markdownString;
 
     // 代码块 (多行，围栏) - 必须首先处理以防止内部Markdown解析
-    rendered = rendered.replace(/```(\w+)?\n([\s\S]+?)\n```/g, (match, lang, code) => {
-      const codeLines = code.trim().split('\n').map((line: string) => chalk.bgHex('#333333')(`  ${line}`)).join('\n');
-      const header = lang ? chalk.bgHex('#333333').white(` ${lang} `) : chalk.bgHex('#333333').white(' 代码 ');
-      return `\n${header}\n${codeLines}\n`;
-    });
+    rendered = rendered.replace(
+      /```(\w+)?\n([\s\S]+?)\n```/g,
+      (match, lang, code) => {
+        const codeLines = code
+          .trim()
+          .split('\n')
+          .map((line: string) => chalk.bgHex('#333333')(`  ${line}`))
+          .join('\n');
+        const header = lang
+          ? chalk.bgHex('#333333').white(` ${lang} `)
+          : chalk.bgHex('#333333').white(' 代码 ');
+        return `\n${header}\n${codeLines}\n`;
+      },
+    );
 
     // 行内代码 `code`
-    rendered = rendered.replace(/`([^`]+?)`/g, (match, code) => chalk.bgHex('#444444').white(code));
+    rendered = rendered.replace(/`([^`]+?)`/g, (match, code) =>
+      chalk.bgHex('#444444').white(code),
+    );
 
     // 粗体 **text** 或 __text__
-    rendered = rendered.replace(/(\*\*|__)(.*?)\1/g, (match, p1, text) => chalk.bold(text));
+    rendered = rendered.replace(/(\*\*|__)(.*?)\1/g, (match, p1, text) =>
+      chalk.bold(text),
+    );
 
     // 斜体 *text* 或 _text_
-    rendered = rendered.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, (match, text) => chalk.italic(text));
-    rendered = rendered.replace(/(?<!_)_([^_]+?)_(?!_)/g, (match, text) => chalk.italic(text));
+    rendered = rendered.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, (match, text) =>
+      chalk.italic(text),
+    );
+    rendered = rendered.replace(/(?<!_)_([^_]+?)_(?!_)/g, (match, text) =>
+      chalk.italic(text),
+    );
 
     // 标题 (例如：# Heading, ## Subheading)
-    rendered = rendered.replace(/^#\s(.+)$/gm, (match, text) => chalk.cyan.bold(text)); // H1
-    rendered = rendered.replace(/^##\s(.+)$/gm, (match, text) => chalk.cyan.underline(text)); // H2
-    rendered = rendered.replace(/^###\s(.+)$/gm, (match, text) => chalk.blue.bold(text)); // H3
-    rendered = rendered.replace(/^####\s(.+)$/gm, (match, text) => chalk.blue(text)); // H4
+    rendered = rendered.replace(/^#\s(.+)$/gm, (match, text) =>
+      chalk.cyan.bold(text),
+    ); // H1
+    rendered = rendered.replace(/^##\s(.+)$/gm, (match, text) =>
+      chalk.cyan.underline(text),
+    ); // H2
+    rendered = rendered.replace(/^###\s(.+)$/gm, (match, text) =>
+      chalk.blue.bold(text),
+    ); // H3
+    rendered = rendered.replace(/^####\s(.+)$/gm, (match, text) =>
+      chalk.blue(text),
+    ); // H4
 
     // 水平线 ---
     rendered = rendered.replace(/^-{3,}$/gm, () => chalk.gray('---'));
 
     // 块引用 > quote
-    rendered = rendered.replace(/^>\s(.+)$/gm, (match, text) => `${chalk.yellow('│ ')}${chalk.yellow.italic(text)}`);
+    rendered = rendered.replace(
+      /^>\s(.+)$/gm,
+      (match, text) => `${chalk.yellow('│ ')}${chalk.yellow.italic(text)}`,
+    );
 
     // 列表 (基本无序和有序)
-    rendered = rendered.replace(/^(\s*[\*\-]\s)(.*)/gm, (match, bullet, text) => `${chalk.gray(bullet)}${text}`); // 无序
-    rendered = rendered.replace(/^(\s*\d+\.\s)(.*)/gm, (match, num, text) => `${chalk.gray(num)}${text}`); // 有序
+    rendered = rendered.replace(
+      /^(\s*[\*\-]\s)(.*)/gm,
+      (match, bullet, text) => `${chalk.gray(bullet)}${text}`,
+    ); // 无序
+    rendered = rendered.replace(
+      /^(\s*\d+\.\s)(.*)/gm,
+      (match, num, text) => `${chalk.gray(num)}${text}`,
+    ); // 有序
 
     return rendered;
   }

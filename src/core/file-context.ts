@@ -18,7 +18,7 @@ export interface FileContextItem {
  */
 export async function getFileContext(filePatterns: string[]): Promise<string> {
   const contents: string[] = [];
-  const fileRanges = new Map<string, Array<{ start?: number, end?: number; }>>();
+  const fileRanges = new Map<string, Array<{ start?: number; end?: number }>>();
 
   for (const pattern of filePatterns) {
     try {
@@ -26,7 +26,11 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
       const hasGlobChars = /[*?[\]]/.test(pattern);
       if (hasGlobChars) {
         // 使用 glob 扩展，输出全文
-        const matchedFiles = await glob(pattern, { dot: true, absolute: true, windowsPathsNoEscape: true });
+        const matchedFiles = await glob(pattern, {
+          dot: true,
+          absolute: true,
+          windowsPathsNoEscape: true,
+        });
         for (const file of matchedFiles) {
           const ranges = fileRanges.get(file) || [];
           ranges.push({ start: undefined, end: undefined });
@@ -44,8 +48,12 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
           filePath = pattern.replace(rangeRegex, '');
           const rangeStr = rangeMatch[1];
           const dashIndex = rangeStr.indexOf('-');
-          const startStr = rangeStr.substring(0, dashIndex >= 0 ? dashIndex : rangeStr.length);
-          const endStr = dashIndex >= 0 ? rangeStr.substring(dashIndex + 1) : '';
+          const startStr = rangeStr.substring(
+            0,
+            dashIndex >= 0 ? dashIndex : rangeStr.length,
+          );
+          const endStr =
+            dashIndex >= 0 ? rangeStr.substring(dashIndex + 1) : '';
           start = parseInt(startStr, 10);
           end = endStr ? parseInt(endStr, 10) : undefined;
           if (isNaN(start) || start < 1) {
@@ -61,7 +69,11 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
         fileRanges.set(filePath, ranges);
       }
     } catch (error) {
-      console.log(CliStyle.warning(`警告: 处理模式 '${pattern}' 时出错。错误: ${(error as Error).message}`));
+      console.log(
+        CliStyle.warning(
+          `警告: 处理模式 '${pattern}' 时出错。错误: ${(error as Error).message}`,
+        ),
+      );
     }
   }
   // 构建 items 数组
@@ -81,7 +93,9 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
     }
 
     if (maxStart > minEnd) {
-      console.log(CliStyle.warning(`警告: 文件 ${file} 的指定范围无交集，跳过。`));
+      console.log(
+        CliStyle.warning(`警告: 文件 ${file} 的指定范围无交集，跳过。`),
+      );
       continue;
     }
 
@@ -91,9 +105,18 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
     // 检查文件是否存在
     try {
       await fs.access(file);
-      items.push({ path: file, start: effectiveStart, end: effectiveEnd, comment: undefined });
+      items.push({
+        path: file,
+        start: effectiveStart,
+        end: effectiveEnd,
+        comment: undefined,
+      });
     } catch (accessError) {
-      console.log(CliStyle.warning(`警告: 文件不存在或无法访问 '${file}'，跳过。错误: ${(accessError as Error).message}`));
+      console.log(
+        CliStyle.warning(
+          `警告: 文件不存在或无法访问 '${file}'，跳过。错误: ${(accessError as Error).message}`,
+        ),
+      );
     }
   }
 
@@ -106,18 +129,24 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
 }
 
 /**
-* 格式化文件上下文对象数组。为未来扩展准备，支持 comment。
-* @param items - 包含文件路径（不支持 glob）、行号范围（可选）和 comment（可选）的对象数组。
-* @returns 格式化的上下文字符串。
-*/
-export async function formatFileContexts(items: FileContextItem[]): Promise<string> {
+ * 格式化文件上下文对象数组。为未来扩展准备，支持 comment。
+ * @param items - 包含文件路径（不支持 glob）、行号范围（可选）和 comment（可选）的对象数组。
+ * @returns 格式化的上下文字符串。
+ */
+export async function formatFileContexts(
+  items: FileContextItem[],
+): Promise<string> {
   const contents: string[] = [];
 
   for (const item of items) {
     try {
       await addFileContent(item, contents);
     } catch (error) {
-      console.log(CliStyle.warning(`警告: 处理文件 ${item.path} 时出错。错误: ${(error as Error).message}`));
+      console.log(
+        CliStyle.warning(
+          `警告: 处理文件 ${item.path} 时出错。错误: ${(error as Error).message}`,
+        ),
+      );
     }
   }
 
@@ -127,7 +156,10 @@ export async function formatFileContexts(items: FileContextItem[]): Promise<stri
 
   return contents.join('\n\n');
 
-  async function addFileContent(item: { path: string; start?: number; end?: number; comment?: string; }, contents: string[]) {
+  async function addFileContent(
+    item: { path: string; start?: number; end?: number; comment?: string },
+    contents: string[],
+  ) {
     try {
       const stat = await fs.stat(item.path);
       if (stat.isDirectory()) {
@@ -141,10 +173,17 @@ export async function formatFileContexts(items: FileContextItem[]): Promise<stri
       let displayStart: number;
       if (item.start !== undefined) {
         displayStart = item.start;
-        const actualEnd = item.end !== undefined ? Math.min(item.end, lines.length) : lines.length;
+        const actualEnd =
+          item.end !== undefined
+            ? Math.min(item.end, lines.length)
+            : lines.length;
         extractedLines = lines.slice(item.start - 1, actualEnd);
         if (extractedLines.length === 0) {
-          console.log(CliStyle.warning(`警告: 文件 ${item.path} 中范围 ${item.start}-${item.end ?? 'end'} 为空，跳过。`));
+          console.log(
+            CliStyle.warning(
+              `警告: 文件 ${item.path} 中范围 ${item.start}-${item.end ?? 'end'} 为空，跳过。`,
+            ),
+          );
           return;
         }
       } else {
@@ -153,12 +192,16 @@ export async function formatFileContexts(items: FileContextItem[]): Promise<stri
       }
 
       // 添加行号标记
-      const numberedContent = extractedLines.map((line, index) =>
-        `${String(displayStart + index).padStart(4)}|${line}`
-      ).join('\n');
+      const numberedContent = extractedLines
+        .map(
+          (line, index) =>
+            `${String(displayStart + index).padStart(4)}|${line}`,
+        )
+        .join('\n');
       let fileBlock = `${startDelimiter('FILE')}\n`;
       fileBlock += `${startDelimiter('metadata')}\npath: ${item.path}\n`;
-      const rangeDesc = item.start !== undefined ? `${item.start}-${item.end ?? 'end'}` : '';
+      const rangeDesc =
+        item.start !== undefined ? `${item.start}-${item.end ?? 'end'}` : '';
       if (rangeDesc) {
         fileBlock += `range: ${rangeDesc}\n`;
       }
@@ -173,7 +216,11 @@ export async function formatFileContexts(items: FileContextItem[]): Promise<stri
       fileBlock += endDelimiter('FILE');
       contents.push(fileBlock);
     } catch (error) {
-      console.log(CliStyle.warning(`警告: 无法读取文件 ${item.path}，跳过。错误: ${(error as Error).message}`));
+      console.log(
+        CliStyle.warning(
+          `警告: 无法读取文件 ${item.path}，跳过。错误: ${(error as Error).message}`,
+        ),
+      );
     }
   }
 }
