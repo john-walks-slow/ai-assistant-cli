@@ -16,7 +16,7 @@
     "mai": "dist/index.js"
   },
   "publishConfig": {
-    "registry": "http://registry.npmjs.org"
+    "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.17",
