@@ -1,6 +1,18 @@
 # MAI - 轻量、可控的文件编辑 AI CLI
 
-MAI (Minimal AI I/O) 旨在成为一个最小化的接口，让你通过自然语言指令，对本地文件执行精确、可审查的编辑。
+<p align="center">
+  <a href="https://www.npmjs.com/package/@johnnren/mai-cli">
+    <img src="https://img.shields.io/npm/v/@johnnren/mai-cli.svg" alt="NPM Version">
+  </a>
+  <a href="https://github.com/john-walks-slow/mai-cli/blob/main/LICENSE">
+    <img src="https://img.shields.io/npm/l/@johnnren/mai-cli.svg" alt="License">
+  </a>
+  <a href="https://github.com/john-walks-slow/mai-cli/actions/workflows/publish.yml">
+    <img src="https://github.com/john-walks-slow/mai-cli/actions/workflows/publish.yml/badge.svg" alt="CI">
+  </a>
+</p>
+
+MAI (Minimal AI I/O) 旨在成为一个最小化的命令行接口，让你通过自然语言指令，对本地文件执行精确、可审查的编辑。
 
 ## 示例
 
