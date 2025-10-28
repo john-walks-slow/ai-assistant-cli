@@ -14,7 +14,7 @@ async function walkTidy() {
 
   if (patterns.length === 0) {
     console.error(
-      '错误: 未提供任何文件或模式。请传入要处理的文件的路径、文件夹或 glob 模式。',
+      '错误: 未提供任何文件或模式。请传入要处理的文件的路径、文件夹或 glob 模式。'
     );
     process.exit(1);
   }
@@ -31,7 +31,7 @@ async function walkTidy() {
         const matchedFiles = await glob(`${pattern}/**/*`, {
           dot: true,
           absolute: true,
-          windowsPathsNoEscape: true,
+          windowsPathsNoEscape: true
         });
         matchedFiles.forEach((file) => allFiles.add(file));
       } else {
@@ -41,7 +41,7 @@ async function walkTidy() {
           const matchedFiles = await glob(pattern, {
             dot: true,
             absolute: true,
-            windowsPathsNoEscape: true,
+            windowsPathsNoEscape: true
           });
           matchedFiles.forEach((file) => allFiles.add(file));
         } else {
@@ -55,12 +55,12 @@ async function walkTidy() {
         const matchedFiles = await glob(pattern, {
           dot: true,
           absolute: true,
-          windowsPathsNoEscape: true,
+          windowsPathsNoEscape: true
         });
         matchedFiles.forEach((file) => allFiles.add(file));
       } catch (globError) {
         console.error(
-          `处理模式 '${pattern}' 时出错: ${(error as Error).message}`,
+          `处理模式 '${pattern}' 时出错: ${(error as Error).message}`
         );
       }
     }
@@ -81,7 +81,7 @@ async function walkTidy() {
       console.log(`执行命令: ${command}`);
 
       const { stdout, stderr } = await execAsync(command, {
-        cwd: process.cwd(),
+        cwd: process.cwd()
       });
 
       if (stdout) {

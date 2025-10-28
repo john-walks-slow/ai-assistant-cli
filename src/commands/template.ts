@@ -21,8 +21,8 @@ export async function listTemplates(): Promise<void> {
     if (templates.length === 0) {
       console.log(
         CliStyle.muted(
-          `未找到任何模板。通过编辑 ${CliStyle.filePath(getConfigFile())} 添加模板。`,
-        ),
+          `未找到任何模板。通过编辑 ${CliStyle.filePath(getConfigFile())} 添加模板。`
+        )
       );
     } else {
       templates.forEach((template, index) => {
@@ -31,7 +31,7 @@ export async function listTemplates(): Promise<void> {
           console.log(`   描述: ${CliStyle.muted(template.description)}`);
         }
         console.log(
-          `   模板: ${CliStyle.muted(template.template.substring(0, 70) + (template.template.length > 70 ? '...' : ''))}`,
+          `   模板: ${CliStyle.muted(template.template.substring(0, 70) + (template.template.length > 70 ? '...' : ''))}`
         );
         console.log();
       });
@@ -54,7 +54,7 @@ export async function showTemplate(templateName: string): Promise<void> {
 
     if (!template) {
       console.error(
-        CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`),
+        CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`)
       );
       process.exit(1);
     }
@@ -85,7 +85,7 @@ export async function applyTemplate(
     selection?: string;
     set?: string[];
     autoApply?: boolean;
-  },
+  }
 ): Promise<void> {
   try {
     const config = await loadConfig();
@@ -93,7 +93,7 @@ export async function applyTemplate(
 
     if (!template) {
       console.error(
-        CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`),
+        CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`)
       );
       process.exit(1);
     }
@@ -123,8 +123,8 @@ export async function applyTemplate(
       } else {
         console.warn(
           CliStyle.warning(
-            `警告: 无效的 --set 参数格式 '${item}'。应为 'key=value'。`,
-          ),
+            `警告: 无效的 --set 参数格式 '${item}'。应为 'key=value'。`
+          )
         );
       }
     });
@@ -147,8 +147,8 @@ export async function applyTemplate(
         {
           type: 'input',
           name: 'value',
-          message: CliStyle.prompt(`请输入占位符 '${key}' 的值:`),
-        },
+          message: CliStyle.prompt(`请输入占位符 '${key}' 的值:`)
+        }
       ]);
       placeholderValues[key] = value;
     }
@@ -161,7 +161,7 @@ export async function applyTemplate(
     });
 
     console.log(
-      CliStyle.process(`\n正在应用模板 '${templateName}'。最终指令:\n`),
+      CliStyle.process(`\n正在应用模板 '${templateName}'。最终指令:\n`)
     );
     console.log(CliStyle.muted(expandedPrompt));
     console.log();
@@ -173,7 +173,7 @@ export async function applyTemplate(
       undefined,
       undefined,
       false,
-      options.autoApply || false,
+      options.autoApply || false
     );
   } catch (error) {
     console.error(CliStyle.error(`应用模板失败: ${(error as Error).message}`));

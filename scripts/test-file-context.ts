@@ -5,7 +5,7 @@ async function main() {
   console.log('=== 测试1: 范围 1-3 和 2-4 的交集 (预期: lines 2-3) ===');
   const result1 = await getFileContext([
     'test-file.txt:1-3',
-    'test-file.txt:2-4',
+    'test-file.txt:2-4'
   ]);
   console.log(result1);
 
@@ -18,7 +18,7 @@ async function main() {
   console.log('\n=== 测试3: 范围 2-4 两次 (预期: lines 2-4) ===');
   const result3 = await getFileContext([
     'test-file.txt:2-4',
-    'test-file.txt:2-4',
+    'test-file.txt:2-4'
   ]);
   console.log(result3);
 
@@ -26,7 +26,7 @@ async function main() {
   console.log('\n=== 测试4: 范围 1-2 和 4-5 的交集 (预期: 无输出，警告) ===');
   const result4 = await getFileContext([
     'test-file.txt:1-2',
-    'test-file.txt:4-5',
+    'test-file.txt:4-5'
   ]);
   console.log(result4 || '无内容输出');
 }

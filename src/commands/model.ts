@@ -5,7 +5,7 @@ import {
   getCurrentModel,
   setModel,
   hasApiKey,
-  getApiKey,
+  getApiKey
 } from '../utils/config-manager';
 
 /**
@@ -52,7 +52,7 @@ export const selectModelInteractive = async (): Promise<void> => {
 
   const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout,
+    output: process.stdout
   });
 
   const answer = await new Promise<string>((resolve) => {

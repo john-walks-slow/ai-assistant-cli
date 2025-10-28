@@ -27,9 +27,7 @@ export async function displayPlan(operations: FileOperation[]): Promise<void> {
   if (!validation.isValid) {
     console.log(CliStyle.error('警告: 发现无效操作，将跳过显示。'));
     console.log(
-      CliStyle.muted(
-        `错误: ${validation.errors?.join(', ') || '未知验证错误'}`,
-      ),
+      CliStyle.muted(`错误: ${validation.errors?.join(', ') || '未知验证错误'}`)
     );
     return;
   }
@@ -72,7 +70,7 @@ export async function displayPlan(operations: FileOperation[]): Promise<void> {
     }
 
     console.log(
-      `${line}${commentAndThought ? `\n   ${commentAndThought}` : ''}`,
+      `${line}${commentAndThought ? `\n   ${commentAndThought}` : ''}`
     );
   });
   console.log(CliStyle.warning('--------------------------\n'));
@@ -84,7 +82,7 @@ export async function displayPlan(operations: FileOperation[]): Promise<void> {
  * @returns 修改后的操作数组。
  */
 async function reviewChangesInDetail(
-  operations: FileOperation[],
+  operations: FileOperation[]
 ): Promise<FileOperation[]> {
   console.log(CliStyle.process('\n--- 正在审查文件内容更改 ---'));
 
@@ -93,9 +91,7 @@ async function reviewChangesInDetail(
   if (!validation.isValid) {
     console.log(CliStyle.error('操作验证失败，无法进行详细审查。'));
     console.log(
-      CliStyle.muted(
-        `错误: ${validation.errors?.join(', ') || '未知验证错误'}`,
-      ),
+      CliStyle.muted(`错误: ${validation.errors?.join(', ') || '未知验证错误'}`)
     );
     return operations;
   }
@@ -107,7 +103,7 @@ async function reviewChangesInDetail(
       let originalContentForDiff = '';
       let ignoreLineRange = false;
       console.log(
-        CliStyle.info(`\n正在显示创建内容: ${CliStyle.filePath(op.filePath)}`),
+        CliStyle.info(`\n正在显示创建内容: ${CliStyle.filePath(op.filePath)}`)
       );
       originalContentForDiff = '';
 
@@ -117,7 +113,7 @@ async function reviewChangesInDetail(
         const editedContent = await showDiffInVsCode(
           originalContentForDiff,
           fullNewContent,
-          op.filePath,
+          op.filePath
         );
 
         if (editedContent !== null) {
@@ -133,15 +129,15 @@ async function reviewChangesInDetail(
           if (!updatedValidation.isValid) {
             console.log(
               CliStyle.warning(
-                `警告: 修改后的操作验证失败: ${updatedValidation.errors?.join(', ') || '未知错误'}`,
-              ),
+                `警告: 修改后的操作验证失败: ${updatedValidation.errors?.join(', ') || '未知错误'}`
+              )
             );
             reviewedOperations.push(op); // 如果验证失败，保留原始操作
           } else {
             console.log(
               CliStyle.success(
-                `已更新 ${CliStyle.filePath(op.filePath)} 的计划内容。`,
-              ),
+                `已更新 ${CliStyle.filePath(op.filePath)} 的计划内容。`
+              )
             );
             reviewedOperations.push(updatedOp);
           }
@@ -151,21 +147,21 @@ async function reviewChangesInDetail(
         } else if (editedContent === null && originalContentForDiff === '') {
           // Create 操作，用户可能取消了
           console.log(
-            CliStyle.muted(`跳过创建 ${CliStyle.filePath(op.filePath)}。`),
+            CliStyle.muted(`跳过创建 ${CliStyle.filePath(op.filePath)}。`)
           );
           // 不添加到 reviewedOperations，相当于移除
         }
       } catch (error) {
         console.log(
           CliStyle.warning(
-            `审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`,
-          ),
+            `审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`
+          )
         );
         reviewedOperations.push(op); // 发生错误时保留原始操作
       }
     } else if (op.type === 'writeWithReplace') {
       console.log(
-        CliStyle.info(`\n正在显示替换内容: ${CliStyle.filePath(op.filePath)}`),
+        CliStyle.info(`\n正在显示替换内容: ${CliStyle.filePath(op.filePath)}`)
       );
 
       try {
@@ -174,13 +170,13 @@ async function reviewChangesInDetail(
         const fullNewContent = replaceInFile(
           originalContent,
           op.content,
-          op.find,
+          op.find
         );
 
         const editedContent = await showDiffInVsCode(
           originalContent,
           fullNewContent,
-          op.filePath,
+          op.filePath
         );
 
         if (editedContent !== null) {
@@ -195,15 +191,15 @@ async function reviewChangesInDetail(
           if (!updatedValidation.isValid) {
             console.log(
               CliStyle.warning(
-                `警告: 修改后的操作验证失败: ${updatedValidation.errors?.join(', ') || '未知错误'}`,
-              ),
+                `警告: 修改后的操作验证失败: ${updatedValidation.errors?.join(', ') || '未知错误'}`
+              )
             );
             reviewedOperations.push(op); // 如果验证失败，保留原始操作
           } else {
             console.log(
               CliStyle.success(
-                `已更新 ${CliStyle.filePath(op.filePath)} 的计划内容。`,
-              ),
+                `已更新 ${CliStyle.filePath(op.filePath)} 的计划内容。`
+              )
             );
             reviewedOperations.push(updatedOp);
           }
@@ -214,8 +210,8 @@ async function reviewChangesInDetail(
       } catch (error) {
         console.log(
           CliStyle.warning(
-            `审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`,
-          ),
+            `审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`
+          )
         );
         reviewedOperations.push(op); // 发生错误时保留原始操作
       }
@@ -238,8 +234,8 @@ async function exportPlanToJson(operations: FileOperation[]): Promise<void> {
         type: 'input',
         name: 'fileName',
         message: '请输入导出文件名 (默认: plan.json):',
-        default: 'plan.json',
-      },
+        default: 'plan.json'
+      }
     ]);
 
     const planString = JSON.stringify(operations, null, 2);
@@ -248,7 +244,7 @@ async function exportPlanToJson(operations: FileOperation[]): Promise<void> {
     await fs.writeFile(fullPath, planString, 'utf-8');
 
     console.log(
-      CliStyle.success(`计划已导出到 ${CliStyle.filePath(fullPath)}`),
+      CliStyle.success(`计划已导出到 ${CliStyle.filePath(fullPath)}`)
     );
     console.log(CliStyle.success('导出完成。'));
   } catch (error) {
@@ -267,7 +263,7 @@ export async function reviewAndExecutePlan(
   operations: FileOperation[],
   promptMessage: string = '',
   userPrompt?: string,
-  autoApply?: boolean,
+  autoApply?: boolean
 ): Promise<{ applied: boolean }> {
   if (operations.length === 0) {
     return { applied: false };
@@ -285,8 +281,8 @@ export async function reviewAndExecutePlan(
     console.log(CliStyle.error('初始操作验证失败，将显示但可能无法执行。'));
     console.log(
       CliStyle.muted(
-        `错误: ${initialValidation.errors?.slice(0, 3).join(', ') || '未知错误'}`,
-      ),
+        `错误: ${initialValidation.errors?.slice(0, 3).join(', ') || '未知错误'}`
+      )
     );
   }
 
@@ -300,7 +296,7 @@ export async function reviewAndExecutePlan(
     if (!finalValidation.isValid) {
       console.log(CliStyle.error('计划包含无效操作，无法自动应用。'));
       throw new Error(
-        `无效操作: ${finalValidation.errors?.join('; ') || '未知验证错误'}`,
+        `无效操作: ${finalValidation.errors?.join('; ') || '未知验证错误'}`
       );
     }
 
@@ -308,7 +304,7 @@ export async function reviewAndExecutePlan(
     console.log(CliStyle.info('正在验证操作可达性...'));
     const reachabilityValidation =
       await OperationValidator.validateOperationsReachability(
-        currentOperations,
+        currentOperations
       );
     if (!reachabilityValidation.isValid) {
       console.log(CliStyle.error('计划包含不可达操作，无法自动应用。'));
@@ -316,7 +312,7 @@ export async function reviewAndExecutePlan(
         console.log(CliStyle.error(`  ${error}`));
       });
       throw new Error(
-        `不可达操作: ${reachabilityValidation.errors?.join('; ') || '未知可达性错误'}`,
+        `不可达操作: ${reachabilityValidation.errors?.join('; ') || '未知可达性错误'}`
       );
     }
     console.log(CliStyle.success('✓ 所有操作可达'));
@@ -326,7 +322,7 @@ export async function reviewAndExecutePlan(
       applied = true;
     } catch (error) {
       console.error(
-        CliStyle.error(`\n自动应用计划失败: ${(error as Error).message}`),
+        CliStyle.error(`\n自动应用计划失败: ${(error as Error).message}`)
       );
       throw error; // 重新抛出以便上层处理
     }
@@ -350,9 +346,9 @@ export async function reviewAndExecutePlan(
           { name: '应用计划', value: 'apply' },
           { name: '审查更改（VS Code diff）', value: 'review' },
           { name: '导出计划 (JSON)', value: 'export' },
-          { name: '取消', value: 'cancel' },
-        ],
-      },
+          { name: '取消', value: 'cancel' }
+        ]
+      }
     ]);
 
     switch (choice) {
@@ -372,8 +368,8 @@ export async function reviewAndExecutePlan(
                   type: 'confirm',
                   name: 'forceApply',
                   message: '是否强制应用可能无效的计划？',
-                  default: false,
-                },
+                  default: false
+                }
               ]);
 
               if (!forceApply) {
@@ -385,7 +381,7 @@ export async function reviewAndExecutePlan(
             console.log(CliStyle.info('正在验证操作可达性...'));
             const reachabilityValidation =
               await OperationValidator.validateOperationsReachability(
-                currentOperations,
+                currentOperations
               );
             if (!reachabilityValidation.isValid) {
               console.log(CliStyle.error('计划包含不可达操作，无法应用。'));
@@ -397,8 +393,8 @@ export async function reviewAndExecutePlan(
                   type: 'confirm',
                   name: 'forceApply',
                   message: '是否强制应用可能不可达的计划？',
-                  default: false,
-                },
+                  default: false
+                }
               ]);
 
               if (!forceApply) {
@@ -410,13 +406,13 @@ export async function reviewAndExecutePlan(
 
             await executePlan(
               currentOperations,
-              userPrompt || 'AI plan execution',
+              userPrompt || 'AI plan execution'
             );
             applied = true;
             inReviewLoop = false;
           } catch (error) {
             console.error(
-              CliStyle.error(`\n应用计划失败: ${(error as Error).message}`),
+              CliStyle.error(`\n应用计划失败: ${(error as Error).message}`)
             );
             inReviewLoop = false;
             throw error; // 重新抛出以便上层处理

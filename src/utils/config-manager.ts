@@ -43,7 +43,7 @@ export const DEFAULT_PROVIDERS: ProvidersConfig = {
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
     models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
-    apiKeyEnv: 'OPENAI_API_KEY',
+    apiKeyEnv: 'OPENAI_API_KEY'
   },
   openrouter: {
     url: 'https://openrouter.ai/api/v1/chat/completions',
@@ -51,15 +51,15 @@ export const DEFAULT_PROVIDERS: ProvidersConfig = {
       'x-ai/grok-code-fast-1',
       'qwen/qwen3-coder:free',
       'moonshotai/kimi-k2:free',
-      'z-ai/glm-4.5-air:free',
+      'z-ai/glm-4.5-air:free'
     ],
-    apiKeyEnv: 'OPENROUTER_API_KEY',
+    apiKeyEnv: 'OPENROUTER_API_KEY'
   },
   gemini: {
     url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions',
     models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    apiKeyEnv: 'GEMINI_API_KEY',
-  },
+    apiKeyEnv: 'GEMINI_API_KEY'
+  }
 } as const;
 
 export const DEFAULT_MODEL: string = 'openai/gpt-4o';
@@ -99,9 +99,10 @@ export async function parseModel(
   const customProviders = config.providers || {};
 
   // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
-  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
-    ? (customProviders as ProvidersConfig)
-    : DEFAULT_PROVIDERS
+  const mergedProviders =
+    customProviders && Object.keys(customProviders).length > 0
+      ? (customProviders as ProvidersConfig)
+      : DEFAULT_PROVIDERS;
 
   const knownProviders: string[] = Object.keys(mergedProviders) as string[];
   for (const provider of knownProviders) {
@@ -190,9 +191,10 @@ export async function getApiEndpoint(model?: string): Promise<string> {
   const customProviders = config.providers || {};
 
   // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
-  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
-    ? (customProviders as ProvidersConfig)
-    : DEFAULT_PROVIDERS
+  const mergedProviders =
+    customProviders && Object.keys(customProviders).length > 0
+      ? (customProviders as ProvidersConfig)
+      : DEFAULT_PROVIDERS;
 
   const def = mergedProviders[parsed.provider];
   if (!def) {
@@ -219,9 +221,10 @@ export async function getApiKey(model?: string): Promise<string> {
   const customProviders = config.providers || {};
 
   // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
-  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
-    ? (customProviders as ProvidersConfig)
-    : DEFAULT_PROVIDERS
+  const mergedProviders =
+    customProviders && Object.keys(customProviders).length > 0
+      ? (customProviders as ProvidersConfig)
+      : DEFAULT_PROVIDERS;
 
   const def = mergedProviders[parsed.provider];
   if (!def) {
@@ -441,9 +444,10 @@ export async function getAvailableModels(): Promise<string[]> {
   const customProviders = config.providers || {};
 
   // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
-  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
-    ? (customProviders as ProvidersConfig)
-    : DEFAULT_PROVIDERS
+  const mergedProviders =
+    customProviders && Object.keys(customProviders).length > 0
+      ? (customProviders as ProvidersConfig)
+      : DEFAULT_PROVIDERS;
 
   const allModels: string[] = [];
   for (const [prov, def] of Object.entries(mergedProviders)) {
@@ -464,7 +468,7 @@ export async function getAutoContextConfig(): Promise<{
     const config = await loadConfig();
     return {
       maxRounds: config.autoContext?.maxRounds || 10,
-      maxFiles: config.autoContext?.maxFiles || 20,
+      maxFiles: config.autoContext?.maxFiles || 20
     };
   } catch (error) {
     // 忽略配置错误，返回默认值
@@ -496,7 +500,7 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       type: 'select',
       options: availableModels,
       getter: getCurrentModel,
-      setter: setModel,
+      setter: setModel
     },
     {
       key: 'systemPrompt',
@@ -504,7 +508,7 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       description: '自定义 AI 的系统提示词，用于定义行为和角色',
       type: 'text',
       getter: getSystemPrompt,
-      setter: setSystemPrompt,
+      setter: setSystemPrompt
     },
     {
       key: 'historyDepth',
@@ -514,7 +518,7 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       min: 0,
       max: 50,
       getter: getHistoryDepth,
-      setter: setHistoryDepth,
+      setter: setHistoryDepth
     },
     {
       key: 'temperature',
@@ -524,7 +528,7 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       min: 0,
       max: 2,
       getter: getTemperature,
-      setter: setTemperature,
+      setter: setTemperature
     },
     {
       key: 'autoContext.maxRounds',
@@ -534,7 +538,7 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       min: 1,
       max: 5,
       getter: async () => (await getAutoContextConfig()).maxRounds,
-      setter: (rounds: number) => setAutoContextMaxRounds(rounds),
+      setter: (rounds: number) => setAutoContextMaxRounds(rounds)
     },
     {
       key: 'autoContext.maxFiles',
@@ -544,8 +548,8 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       min: 1,
       max: 20,
       getter: async () => (await getAutoContextConfig()).maxFiles,
-      setter: (files: number) => setAutoContextMaxFiles(files),
-    },
+      setter: (files: number) => setAutoContextMaxFiles(files)
+    }
     // 未来可在此添加更多选项，如 templates 等
   ];
 

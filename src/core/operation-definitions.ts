@@ -8,7 +8,7 @@ import {
   validateOperation,
   validateOperations,
   ValidationResult,
-  FileOperation,
+  FileOperation
 } from './operation-schema';
 
 export function startDelimiter(identifier: string = 'OPERATION') {
@@ -51,9 +51,9 @@ export class OperationDescriptions {
         comment: { example: '额外说明', optional: true },
         content: {
           example: '**你的Markdown渲染文本回答。**',
-          isBlock: true,
-        },
-      },
+          isBlock: true
+        }
+      }
     },
     create: {
       description:
@@ -61,14 +61,14 @@ export class OperationDescriptions {
       fields: {
         type: { example: 'create' },
         filePath: {
-          example: 'path/to/new_file.jsx',
+          example: 'path/to/new_file.jsx'
         },
         comment: { example: '创建一个新的React组件。', optional: true },
         content: {
           example: 'const NewComponent = () => <div>Hello World</div>',
-          isBlock: true,
-        },
-      },
+          isBlock: true
+        }
+      }
     },
 
     writeWithReplace: {
@@ -77,24 +77,24 @@ export class OperationDescriptions {
       fields: {
         type: { example: 'writeWithReplace' },
         filePath: {
-          example: 'path/to/file.txt',
+          example: 'path/to/file.txt'
         },
         comment: {
           example: '修复了组件中的一个拼写错误。',
-          optional: true,
+          optional: true
         },
         find: {
           example: 'const NewComponent = () => <div>Helo World</div>',
           description: `要查找并替换的目标文本。不支持通配符和正则表达式。请勿包含行号。*必须保证当前文件中有且仅有一个匹配项。*如果留空，则替换整个文件的内容。`,
           optional: true,
-          isBlock: true,
+          isBlock: true
         },
         content: {
           example: 'const NewComponent = () => <div>Hello World</div>',
           description: '替换为的新内容',
-          isBlock: true,
-        },
-      },
+          isBlock: true
+        }
+      }
     },
     // edit: {
     //   description: "编辑文件内容。如果提供了 startLine 和 endLine，则替换指定行范围内的内容（不包含 endLine）；否则，将用新内容完全覆盖整个文件。\n现在支持对同一文件进行多次 edit 操作。所有 startLine 和 endLine 相对于文件的初始状态。系统会自动跟踪初始行号并调整后续编辑的位置。为确保正确，请按从顶部到底部的顺序提供非重叠的编辑范围。",
@@ -130,31 +130,31 @@ export class OperationDescriptions {
         type: { example: 'move' },
         oldPath: {
           description: '源文件路径',
-          example: 'path/to/old.ts',
+          example: 'path/to/old.ts'
         },
         newPath: {
           description: '目标文件路径',
-          example: 'path/to/new.ts',
+          example: 'path/to/new.ts'
         },
         comment: {
           example: '将文件移动到新位置。',
-          optional: true,
-        },
-      },
+          optional: true
+        }
+      }
     },
     delete: {
       description: '删除现有文件。',
       fields: {
         type: { example: 'delete' },
         filePath: {
-          example: 'path/to/delete.ts',
+          example: 'path/to/delete.ts'
         },
         comment: {
           example: '删除不再使用的旧文件。',
-          optional: true,
-        },
-      },
-    },
+          optional: true
+        }
+      }
+    }
   } as const;
 
   /**
@@ -204,7 +204,7 @@ export class OperationDescriptions {
    */
   private static _buildFieldComment({
     description,
-    optional,
+    optional
   }: {
     description?: string;
     optional?: boolean;

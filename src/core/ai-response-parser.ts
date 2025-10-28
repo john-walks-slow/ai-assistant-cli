@@ -2,7 +2,7 @@ import {
   endDelimiter,
   endDelimiterRegex,
   startDelimiter,
-  startDelimiterRegex,
+  startDelimiterRegex
 } from './operation-definitions';
 import { CliStyle } from '../utils/cli-style';
 import * as JSON5 from 'json5'; // Use JSON5 for parsing flexibly
@@ -24,7 +24,7 @@ type PartialAiOperation = Partial<AiOperation> & { [key: string]: any };
  */
 async function parseSingleOperationBlock(
   blockContent: string,
-  looseMode: boolean = false,
+  looseMode: boolean = false
 ): Promise<PartialAiOperation> {
   const operation: PartialAiOperation = {};
   const lines = blockContent.split('\n');
@@ -65,13 +65,13 @@ async function parseSingleOperationBlock(
           operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
           console.log(
             CliStyle.warning(
-              `自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`,
-            ),
+              `自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`
+            )
           );
           contentLines = [];
         } else {
           throw new Error(
-            `在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`,
+            `在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`
           );
         }
       }
@@ -124,8 +124,8 @@ async function parseSingleOperationBlock(
       operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
       console.log(
         CliStyle.warning(
-          `自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`,
-        ),
+          `自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`
+        )
       );
     } else {
       throw new Error(`未关闭的内容块: '${currentContentKey} START'`);
@@ -200,7 +200,7 @@ function findOperationBlocks(response: string): string[] {
 async function parseDelimitedOperations(
   response: string,
   shouldValidate = true,
-  looseMode: boolean = false,
+  looseMode: boolean = false
 ): Promise<AiOperation[]> {
   const blocks = findOperationBlocks(response);
   if (!blocks.length) {
@@ -224,8 +224,8 @@ async function parseDelimitedOperations(
             CliStyle.warning(
               `操作 ${i + 1} 验证失败: ${
                 validation.errors?.join(', ') || '未知错误'
-              }`,
-            ),
+              }`
+            )
           );
           errors++;
           continue;
@@ -282,7 +282,7 @@ async function tryParseAsJson(response: string): Promise<AiOperation[]> {
       throw new Error(
         `JSON 验证失败: ${
           validation.errors?.slice(0, 3).join('; ') || '未知错误'
-        }`,
+        }`
       );
     }
 
@@ -298,7 +298,7 @@ async function tryParseAsJson(response: string): Promise<AiOperation[]> {
     throw new Error(
       `JSON 解析/验证错误: ${
         error instanceof Error ? error.message : String(error)
-      }`,
+      }`
     );
   }
 }
@@ -312,7 +312,7 @@ async function tryParseAsJson(response: string): Promise<AiOperation[]> {
 export async function parseAiResponse(
   response: string,
   shouldValidate = true,
-  looseMode: boolean = true,
+  looseMode: boolean = true
 ): Promise<AiOperation[]> {
   const trimmed = response.trim();
   if (!trimmed) {
@@ -332,8 +332,8 @@ export async function parseAiResponse(
       CliStyle.warning(
         `尝试 JSON 解析失败: ${
           error instanceof Error ? error.message : String(error)
-        }`,
-      ),
+        }`
+      )
     );
   }
 
@@ -341,7 +341,7 @@ export async function parseAiResponse(
   const delimitedOps = await parseDelimitedOperations(
     trimmed,
     shouldValidate,
-    looseMode,
+    looseMode
   );
   if (delimitedOps.length > 0) {
     return delimitedOps;

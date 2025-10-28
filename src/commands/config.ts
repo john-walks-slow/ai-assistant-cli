@@ -16,7 +16,7 @@ import {
   resetConfigCache,
   saveConfig,
   setModel,
-  setSystemPrompt,
+  setSystemPrompt
 } from '../utils/config-manager';
 
 /**
@@ -43,7 +43,7 @@ export async function listConfig(): Promise<void> {
 
     if (systemPrompt) {
       console.log(
-        `系统提示词: ${CliStyle.muted('(已配置，长度: ' + systemPrompt.length + ' 字符)')}`,
+        `系统提示词: ${CliStyle.muted('(已配置，长度: ' + systemPrompt.length + ' 字符)')}`
       );
     } else {
       console.log(`系统提示词: ${CliStyle.warning('使用默认')}`);
@@ -57,8 +57,8 @@ export async function listConfig(): Promise<void> {
 
     console.log(
       CliStyle.info(
-        `配置文件位置: ${path.join(os.homedir(), '.mai/config.json5')}`,
-      ),
+        `配置文件位置: ${path.join(os.homedir(), '.mai/config.json5')}`
+      )
     );
     console.log(CliStyle.info('--------------------------\n'));
   } catch (error) {
@@ -80,8 +80,8 @@ export async function resetConfig(): Promise<void> {
       type: 'confirm',
       name: 'confirm',
       message: '这将重置所有配置到默认值，确定要继续吗？',
-      default: false,
-    },
+      default: false
+    }
   ]);
 
   if (!confirm) {
@@ -108,7 +108,7 @@ export async function resetConfig(): Promise<void> {
  */
 export async function directSetConfig(
   key: string,
-  value: string,
+  value: string
 ): Promise<void> {
   try {
     const options = await getConfigurableOptions();
@@ -116,7 +116,7 @@ export async function directSetConfig(
 
     if (!option) {
       throw new Error(
-        `不支持的配置键: ${key}。可用键: ${options.map((o) => o.key).join(', ')}`,
+        `不支持的配置键: ${key}。可用键: ${options.map((o) => o.key).join(', ')}`
       );
     }
 
@@ -138,7 +138,7 @@ export async function directSetConfig(
     } else if (option.type === 'select') {
       if (option.options && !option.options.includes(value)) {
         throw new Error(
-          `无效的选择值 for ${key}: ${value}。可用选项: ${option.options.join(', ')}`,
+          `无效的选择值 for ${key}: ${value}。可用选项: ${option.options.join(', ')}`
         );
       }
     } // text 类型直接用字符串
@@ -147,7 +147,7 @@ export async function directSetConfig(
     console.log(CliStyle.success(`${key} 已设置为: ${convertedValue}`));
   } catch (error) {
     console.error(
-      CliStyle.error(`设置 ${key} 失败: ${(error as Error).message}`),
+      CliStyle.error(`设置 ${key} 失败: ${(error as Error).message}`)
     );
     process.exit(1);
   }

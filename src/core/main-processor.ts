@@ -6,7 +6,7 @@ import ora from 'ora';
 import {
   AiOperation,
   FileOperation,
-  ResponseOperation,
+  ResponseOperation
 } from './operation-schema';
 import { CliStyle } from '../utils/cli-style';
 import { getSystemPrompt } from '../utils/config-manager';
@@ -25,7 +25,7 @@ import {
   saveAiHistory,
   parseIdOrName,
   HistoryEntry,
-  updateHistoryApplied,
+  updateHistoryApplied
 } from '../commands/history';
 import { getHistoryDepth } from '../utils/config-manager';
 import { prepareAutoContext } from './context-agent';
@@ -48,7 +48,7 @@ export async function processRequest(
   autoContext?: boolean,
   autoApply?: boolean,
   model?: string,
-  temperature?: number,
+  temperature?: number
 ): Promise<void> {
   if (!userPrompt?.trim()) {
     console.log(CliStyle.warning('用户请求为空，退出。'));
@@ -69,8 +69,8 @@ export async function processRequest(
     if (systemPrompt) {
       console.log(
         CliStyle.info(
-          `使用指定的系统提示词（长度: ${systemPrompt.length} 字符）。`,
-        ),
+          `使用指定的系统提示词（长度: ${systemPrompt.length} 字符）。`
+        )
       );
     } else {
       console.log(CliStyle.info('使用空系统提示词。'));
@@ -99,12 +99,12 @@ export async function processRequest(
       const autoItems: FileContextItem[] = await prepareAutoContext(userPrompt);
       additionalFiles = autoItems.map((item) => item.path);
       console.log(
-        CliStyle.info(`自动上下文添加了 ${additionalFiles.length} 个文件`),
+        CliStyle.info(`自动上下文添加了 ${additionalFiles.length} 个文件`)
       );
     }
     if (historyIds && historyIds.length > 0) {
       console.log(
-        CliStyle.info(`正在加载多个历史上下文: ${historyIds.join(', ')}`),
+        CliStyle.info(`正在加载多个历史上下文: ${historyIds.join(', ')}`)
       );
       const history = await loadHistory();
       for (const idOrName of historyIds) {
@@ -124,7 +124,7 @@ export async function processRequest(
       }
       if (effectiveDepth > 0) {
         console.log(
-          CliStyle.info(`正在加载最近 ${effectiveDepth} 条历史上下文`),
+          CliStyle.info(`正在加载最近 ${effectiveDepth} 条历史上下文`)
         );
         entries = await getRecentHistory(effectiveDepth);
         // 添加历史请求中的文件到 files
@@ -153,18 +153,18 @@ export async function processRequest(
         historyMessages.push({ role: 'user', content: entry.prompt });
         historyMessages.push({
           role: 'assistant',
-          content: entry.aiResponse || '',
+          content: entry.aiResponse || ''
         });
         if (entry.applied !== undefined) {
           const choice = entry.applied ? '应用' : '放弃';
           historyMessages.push({
             role: 'user',
-            content: `用户选择了${choice}该计划。`,
+            content: `用户选择了${choice}该计划。`
           });
         }
       }
       console.log(
-        CliStyle.info(`已将 ${entries.length} 条历史添加到对话历史中`),
+        CliStyle.info(`已将 ${entries.length} 条历史添加到对话历史中`)
       );
     }
   } catch (error) {
@@ -185,8 +185,8 @@ export async function processRequest(
     text: 'AI生成响应中',
     spinner: {
       interval: 80,
-      frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
-    },
+      frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    }
   }).start();
 
   let aiResponse: string;
@@ -205,7 +205,7 @@ export async function processRequest(
         : []),
       ...historyMessages,
       { role: 'user', content: actualUserPromptContent },
-      ...(fileContext ? [{ role: 'user', content: fileContext }] : []),
+      ...(fileContext ? [{ role: 'user', content: fileContext }] : [])
     ];
 
     aiResponse = await getAiResponse(messages, 3, model, actualTemperature);
@@ -213,7 +213,7 @@ export async function processRequest(
     await saveAiResponseToTempFile(aiResponse, messagesJson);
     clearInterval(updateInterval);
     aiSpinner.succeed(
-      `AI响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`,
+      `AI响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`
     );
   } catch (error) {
     if (updateInterval) clearInterval(updateInterval);
@@ -237,7 +237,7 @@ export async function processAiResponse(
   aiResponse: string,
   userPrompt?: string,
   autoApply?: boolean,
-  files?: string[],
+  files?: string[]
 ): Promise<void> {
   if (!aiResponse?.trim()) {
     // 即使响应为空，也保存历史
@@ -248,7 +248,7 @@ export async function processAiResponse(
         [],
         new Map(),
         '空AI响应',
-        files,
+        files
       );
     }
     console.log(CliStyle.warning('AI响应为空，无操作可执行。'));
@@ -268,7 +268,7 @@ export async function processAiResponse(
           [],
           new Map(),
           '仅包含AI响应',
-          files,
+          files
         );
       }
       console.log(CliStyle.warning('AI未提出任何结构化操作。'));
@@ -281,10 +281,10 @@ export async function processAiResponse(
 
     // 分离响应操作和文件操作
     const responseOps = operations.filter(
-      (op): op is ResponseOperation => op.type === 'response',
+      (op): op is ResponseOperation => op.type === 'response'
     );
     const fileOps = operations.filter(
-      (op): op is FileOperation => op.type !== 'response',
+      (op): op is FileOperation => op.type !== 'response'
     );
 
     // 预加载需要备份的文件初始内容（仅文件操作）
@@ -311,7 +311,7 @@ export async function processAiResponse(
       operations,
       fileOriginalContents,
       undefined, // description 将在执行后更新
-      files,
+      files
     );
 
     // 步骤1：显示AI的文本响应
@@ -334,13 +334,13 @@ export async function processAiResponse(
           fileOps,
           '',
           userPrompt,
-          autoApply,
+          autoApply
         );
         if (applied) {
           // 执行成功，更新历史描述和 applied
           await updateHistoryDescription(
             historyEntry.id,
-            `执行成功: ${fileOps.length} 个文件操作`,
+            `执行成功: ${fileOps.length} 个文件操作`
           );
           await updateHistoryApplied(historyEntry.id, true);
         } else {
@@ -353,7 +353,7 @@ export async function processAiResponse(
         // 执行失败，更新历史描述，applied 保持 false
         await updateHistoryDescription(
           historyEntry.id,
-          `执行失败: ${errorMessage}`,
+          `执行失败: ${errorMessage}`
         );
         // Rethrow to indicate failure
         throw new Error(`文件操作执行失败: ${errorMessage}`);
@@ -361,7 +361,7 @@ export async function processAiResponse(
     } else {
       await updateHistoryDescription(
         historyEntry.id,
-        '仅包含AI响应，无文件操作',
+        '仅包含AI响应，无文件操作'
       );
       console.log(CliStyle.success('AI操作完成（仅包含说明文本）。'));
     }
@@ -378,7 +378,7 @@ export async function processAiResponse(
           [],
           new Map(),
           `处理失败: ${errorMessage}`,
-          files,
+          files
         );
       } catch {}
     }
@@ -390,8 +390,8 @@ export async function processAiResponse(
     if (aiResponse.length > 100) {
       console.log(
         CliStyle.muted(
-          `... (响应被截断，还有 ${aiResponse.length - 100} 个字符)`,
-        ),
+          `... (响应被截断，还有 ${aiResponse.length - 100} 个字符)`
+        )
       );
     }
     console.log(CliStyle.info('--- 原始响应结束 ---\n'));
@@ -407,7 +407,7 @@ export async function processAiResponse(
  */
 async function updateHistoryDescription(
   id: string,
-  newDescription: string,
+  newDescription: string
 ): Promise<void> {
   const history = await loadHistory();
   const entry = history.find((h: HistoryEntry) => h.id === id);
@@ -424,7 +424,7 @@ async function updateHistoryDescription(
  */
 async function saveAiResponseToTempFile(
   aiResponse: string,
-  messagesJson: string,
+  messagesJson: string
 ): Promise<void> {
   try {
     const tempDir = os.tmpdir();
@@ -445,7 +445,7 @@ async function saveAiResponseToTempFile(
       '',
       aiResponse,
       '',
-      '--- End of Response ---',
+      '--- End of Response ---'
     ].join('\n');
 
     await fs.writeFile(tempFilePath, saveContent, 'utf-8');
@@ -453,7 +453,7 @@ async function saveAiResponseToTempFile(
   } catch (error) {
     // 非关键错误，不抛出异常
     console.log(
-      CliStyle.warning(`无法保存AI响应到临时文件: ${(error as Error).message}`),
+      CliStyle.warning(`无法保存AI响应到临时文件: ${(error as Error).message}`)
     );
   }
 }

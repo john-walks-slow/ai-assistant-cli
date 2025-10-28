@@ -6,7 +6,7 @@ import {
   validateOperation,
   validateOperations,
   ValidationResult,
-  FileOperation,
+  FileOperation
 } from './operation-schema';
 import { isFileIgnored, computeFindMatchCount } from '../utils/file-utils';
 import { findGitRoot } from '../utils/file-utils';
@@ -39,7 +39,7 @@ export class OperationValidator {
    * @returns 验证结果。
    */
   static async validateOperationReachability(
-    op: FileOperation,
+    op: FileOperation
   ): Promise<ValidationResult> {
     try {
       switch (op.type) {
@@ -54,7 +54,7 @@ export class OperationValidator {
         default:
           return {
             isValid: false,
-            errors: [`未知操作类型: ${(op as any).type}`],
+            errors: [`未知操作类型: ${(op as any).type}`]
           };
       }
     } catch (error) {
@@ -63,8 +63,8 @@ export class OperationValidator {
         errors: [
           `验证可达性时出错: ${
             error instanceof Error ? error.message : String(error)
-          }`,
-        ],
+          }`
+        ]
       };
     }
   }
@@ -75,7 +75,7 @@ export class OperationValidator {
    * @returns 验证结果。
    */
   static async validateOperationsReachability(
-    operations: FileOperation[],
+    operations: FileOperation[]
   ): Promise<ValidationResult> {
     const errors: string[] = [];
     for (let i = 0; i < operations.length; i++) {
@@ -99,7 +99,7 @@ export class OperationValidator {
    * 验证创建操作的可达性。
    */
   private static async validateCreateReachability(
-    op: FileOperation,
+    op: FileOperation
   ): Promise<ValidationResult> {
     const filePath = (op as any).filePath;
     if (!filePath) {
@@ -123,7 +123,7 @@ export class OperationValidator {
     } catch (error) {
       return {
         isValid: false,
-        errors: [`无法访问目标目录: ${path.dirname(filePath)}`],
+        errors: [`无法访问目标目录: ${path.dirname(filePath)}`]
       };
     }
   }
@@ -132,7 +132,7 @@ export class OperationValidator {
    * 验证替换操作的可达性。
    */
   private static async validatewriteWithReplaceReachability(
-    op: FileOperation,
+    op: FileOperation
   ): Promise<ValidationResult> {
     const filePath = (op as any).filePath;
     if (!filePath) {
@@ -145,7 +145,7 @@ export class OperationValidator {
       if (await isFileIgnored(relativePath)) {
         return {
           isValid: false,
-          errors: ['文件被 .gitignore 忽略，无法执行 writeWithReplace 操作。'],
+          errors: ['文件被 .gitignore 忽略，无法执行 writeWithReplace 操作。']
         };
       }
 
@@ -160,14 +160,14 @@ export class OperationValidator {
         if (findCount === 0) {
           return {
             isValid: false,
-            errors: [`在文件中找不到要替换的文本: ${filePath}\n${find}\n`],
+            errors: [`在文件中找不到要替换的文本: ${filePath}\n${find}\n`]
           };
         } else if (findCount > 1) {
           return {
             isValid: false,
             errors: [
-              `在文件中找到多个匹配项 (${findCount}个)，需要更具体的查找文本: ${filePath}`,
-            ],
+              `在文件中找到多个匹配项 (${findCount}个)，需要更具体的查找文本: ${filePath}`
+            ]
           };
         }
       }
@@ -182,7 +182,7 @@ export class OperationValidator {
    * 验证移动操作的可达性。
    */
   private static async validateMoveReachability(
-    op: FileOperation,
+    op: FileOperation
   ): Promise<ValidationResult> {
     const oldPath = (op as any).oldPath;
     const newPath = (op as any).newPath;
@@ -214,7 +214,7 @@ export class OperationValidator {
       }
       return {
         isValid: false,
-        errors: [`无法访问目标目录: ${path.dirname(newPath)}`],
+        errors: [`无法访问目标目录: ${path.dirname(newPath)}`]
       };
     }
   }
@@ -223,7 +223,7 @@ export class OperationValidator {
    * 验证删除操作的可达性。
    */
   private static async validateDeleteReachability(
-    op: FileOperation,
+    op: FileOperation
   ): Promise<ValidationResult> {
     const filePath = (op as any).filePath;
     if (!filePath) {

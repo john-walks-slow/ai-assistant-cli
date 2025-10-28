@@ -182,39 +182,39 @@ export class CliStyle {
           ? chalk.bgHex('#333333').white(` ${lang} `)
           : chalk.bgHex('#333333').white(' 代码 ');
         return `\n${header}\n${codeLines}\n`;
-      },
+      }
     );
 
     // 行内代码 `code`
     rendered = rendered.replace(/`([^`]+?)`/g, (match, code) =>
-      chalk.bgHex('#444444').white(code),
+      chalk.bgHex('#444444').white(code)
     );
 
     // 粗体 **text** 或 __text__
     rendered = rendered.replace(/(\*\*|__)(.*?)\1/g, (match, p1, text) =>
-      chalk.bold(text),
+      chalk.bold(text)
     );
 
     // 斜体 *text* 或 _text_
     rendered = rendered.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, (match, text) =>
-      chalk.italic(text),
+      chalk.italic(text)
     );
     rendered = rendered.replace(/(?<!_)_([^_]+?)_(?!_)/g, (match, text) =>
-      chalk.italic(text),
+      chalk.italic(text)
     );
 
     // 标题 (例如：# Heading, ## Subheading)
     rendered = rendered.replace(/^#\s(.+)$/gm, (match, text) =>
-      chalk.cyan.bold(text),
+      chalk.cyan.bold(text)
     ); // H1
     rendered = rendered.replace(/^##\s(.+)$/gm, (match, text) =>
-      chalk.cyan.underline(text),
+      chalk.cyan.underline(text)
     ); // H2
     rendered = rendered.replace(/^###\s(.+)$/gm, (match, text) =>
-      chalk.blue.bold(text),
+      chalk.blue.bold(text)
     ); // H3
     rendered = rendered.replace(/^####\s(.+)$/gm, (match, text) =>
-      chalk.blue(text),
+      chalk.blue(text)
     ); // H4
 
     // 水平线 ---
@@ -223,17 +223,17 @@ export class CliStyle {
     // 块引用 > quote
     rendered = rendered.replace(
       /^>\s(.+)$/gm,
-      (match, text) => `${chalk.yellow('│ ')}${chalk.yellow.italic(text)}`,
+      (match, text) => `${chalk.yellow('│ ')}${chalk.yellow.italic(text)}`
     );
 
     // 列表 (基本无序和有序)
     rendered = rendered.replace(
       /^(\s*[\*\-]\s)(.*)/gm,
-      (match, bullet, text) => `${chalk.gray(bullet)}${text}`,
+      (match, bullet, text) => `${chalk.gray(bullet)}${text}`
     ); // 无序
     rendered = rendered.replace(
       /^(\s*\d+\.\s)(.*)/gm,
-      (match, num, text) => `${chalk.gray(num)}${text}`,
+      (match, num, text) => `${chalk.gray(num)}${text}`
     ); // 有序
 
     return rendered;

@@ -5,7 +5,7 @@ import {
   listFilesInDirectory,
   advancedSearchFiles,
   getProjectOverview,
-  validateFilePaths,
+  validateFilePaths
 } from '../utils/file-utils';
 import { getAiResponse } from '../utils/network';
 import { FileContextItem } from './file-context';
@@ -29,11 +29,11 @@ interface ActionSuggestion {
 }
 
 async function parseContextAgentResponse(
-  aiResponse: string,
+  aiResponse: string
 ): Promise<AiContextSuggestion> {
   try {
     const jsonMatch = aiResponse.match(
-      /```json\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/,
+      /```json\s*([\s\S]*?)\s*```|(\{[\s\S]*\})/
     );
     if (jsonMatch) {
       const jsonString = jsonMatch[1] || jsonMatch[2];
@@ -41,18 +41,18 @@ async function parseContextAgentResponse(
       return {
         reasoning: parsed.reasoning || 'No reasoning provided.',
         sufficient: parsed.sufficient || false,
-        suggestedActions: parsed.suggestedActions || [],
+        suggestedActions: parsed.suggestedActions || []
       };
     }
     throw new Error('No valid JSON block found in the AI response.');
   } catch (e) {
     console.log(
-      CliStyle.error(`Failed to parse AI response: ${(e as Error).message}`),
+      CliStyle.error(`Failed to parse AI response: ${(e as Error).message}`)
     );
     return {
       reasoning: 'Critical error: Failed to parse the last AI response.',
       sufficient: false,
-      suggestedActions: [],
+      suggestedActions: []
     };
   }
 }
@@ -63,14 +63,14 @@ async function parseContextAgentResponse(
  */
 function createFileContextPlaceholder(
   filePath: string,
-  reason: string,
+  reason: string
 ): FileContextItem {
   return {
     path: filePath,
     comment: `File added to context. Reason: ${reason}`,
     content: undefined, // Content is explicitly not read here
     start: undefined,
-    end: undefined,
+    end: undefined
   };
 }
 
@@ -82,7 +82,7 @@ function createFileContextPlaceholder(
  */
 async function executeSuggestedAction(
   action: ActionSuggestion,
-  currentContext: FileContextItem[],
+  currentContext: FileContextItem[]
 ): Promise<FileContextItem[]> {
   try {
     switch (action.type) {
@@ -105,7 +105,7 @@ async function executeSuggestedAction(
         // If item exists and content is already read, do nothing.
         if (existingItem?.content) {
           console.log(
-            CliStyle.info(`--> Content for ${path} has already been read.`),
+            CliStyle.info(`--> Content for ${path} has already been read.`)
           );
           return [];
         }
@@ -127,8 +127,8 @@ async function executeSuggestedAction(
             comment: comment,
             // Preserve existing start/end if the item was a search result snippet
             start: existingItem?.start,
-            end: existingItem?.end,
-          },
+            end: existingItem?.end
+          }
         ];
       }
 
@@ -136,7 +136,7 @@ async function executeSuggestedAction(
         const { path = '.', recursive = true, filePattern } = action.params;
         const files = await listFilesInDirectory(path, recursive, filePattern);
         return files.map((f) =>
-          createFileContextPlaceholder(f, `Listed from directory: ${path}`),
+          createFileContextPlaceholder(f, `Listed from directory: ${path}`)
         );
       }
 
@@ -145,14 +145,14 @@ async function executeSuggestedAction(
           path = '.',
           regex,
           filePattern,
-          contextLines = 3,
+          contextLines = 3
         } = action.params;
         if (!regex) throw new Error('regex is missing for contentSearch');
         return await advancedSearchFiles(
           path,
           regex,
           filePattern,
-          contextLines,
+          contextLines
         );
       }
 
@@ -163,15 +163,15 @@ async function executeSuggestedAction(
   } catch (err) {
     console.log(
       CliStyle.warning(
-        `Execution failed for action ${action.type}: ${(err as Error).message}`,
-      ),
+        `Execution failed for action ${action.type}: ${(err as Error).message}`
+      )
     );
   }
   return [];
 }
 
 export async function prepareAutoContext(
-  userPrompt: string,
+  userPrompt: string
 ): Promise<FileContextItem[]> {
   const { maxRounds, maxFiles } = await getAutoContextConfig();
 
@@ -181,47 +181,47 @@ export async function prepareAutoContext(
 
   const systemPrompt = await getContextAgentSystemPrompt();
   const messages: { role: string; content: string }[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt }
   ];
 
   for (let round = 1; round <= maxRounds && !sufficient; round++) {
     console.log(
-      CliStyle.info(`\n===== Auto Context Round ${round}/${maxRounds} =====`),
+      CliStyle.info(`\n===== Auto Context Round ${round}/${maxRounds} =====`)
     );
 
     const userPromptForAi = buildUserPromptForContextAgent(
       userPrompt,
       projectKnowledgeBase,
       currentContextItems,
-      round,
+      round
     );
 
     messages.push({ role: 'user', content: userPromptForAi });
 
     const aiResponse = await getAiResponse(messages);
     console.log(
-      CliStyle.debug(`AI Raw Response (Round ${round}): ${aiResponse}`),
+      CliStyle.debug(`AI Raw Response (Round ${round}): ${aiResponse}`)
     );
     messages.push({ role: 'assistant', content: aiResponse });
 
     const suggestion = await parseContextAgentResponse(aiResponse);
     console.log(
       CliStyle.info(
-        `AI Plan (Round ${round}):\n${JSON.stringify(suggestion, null, 2)}`,
-      ),
+        `AI Plan (Round ${round}):\n${JSON.stringify(suggestion, null, 2)}`
+      )
     );
     console.log(
       CliStyle.info(
-        `AI's current reasoning: ${suggestion.reasoning || 'No reasoning provided.'}`,
-      ),
+        `AI's current reasoning: ${suggestion.reasoning || 'No reasoning provided.'}`
+      )
     );
 
     sufficient = suggestion.sufficient;
     if (sufficient) {
       console.log(
         CliStyle.success(
-          `AI has determined the context is sufficient. Reason: ${suggestion.reasoning || 'No specific reason provided.'}`,
-        ),
+          `AI has determined the context is sufficient. Reason: ${suggestion.reasoning || 'No specific reason provided.'}`
+        )
       );
       break;
     }
@@ -231,7 +231,7 @@ export async function prepareAutoContext(
       suggestion.suggestedActions.length === 0
     ) {
       console.log(
-        CliStyle.warning(`AI did not suggest any actions. Ending process.`),
+        CliStyle.warning(`AI did not suggest any actions. Ending process.`)
       );
       break;
     }
@@ -239,8 +239,8 @@ export async function prepareAutoContext(
     for (const action of suggestion.suggestedActions) {
       console.log(
         CliStyle.info(
-          `Executing AI action: ${action.type} - ${JSON.stringify(action.params)}`,
-        ),
+          `Executing AI action: ${action.type} - ${JSON.stringify(action.params)}`
+        )
       );
 
       if (action.type === 'removeFile') {
@@ -248,12 +248,12 @@ export async function prepareAutoContext(
         if (path) {
           const beforeCount = currentContextItems.length;
           currentContextItems = currentContextItems.filter(
-            (item) => item.path !== path,
+            (item) => item.path !== path
           );
           console.log(
             CliStyle.info(
-              `--> Removed ${beforeCount - currentContextItems.length} items matching ${path}`,
-            ),
+              `--> Removed ${beforeCount - currentContextItems.length} items matching ${path}`
+            )
           );
         }
         continue;
@@ -261,26 +261,26 @@ export async function prepareAutoContext(
 
       const actionResults = await executeSuggestedAction(
         action,
-        currentContextItems,
+        currentContextItems
       );
 
       if (actionResults.length > 0) {
         console.log(
           CliStyle.success(
-            `--> Found/updated ${actionResults.length} items from action.`,
-          ),
+            `--> Found/updated ${actionResults.length} items from action.`
+          )
         );
 
         for (const resultItem of actionResults) {
           const existingItemIndex = currentContextItems.findIndex(
             (item) =>
-              item.path === resultItem.path && item.start === resultItem.start,
+              item.path === resultItem.path && item.start === resultItem.start
           );
 
           if (existingItemIndex !== -1) {
             // This handles updates, e.g., from 'readFile'
             console.log(
-              CliStyle.info(`--> Updating context for ${resultItem.path}`),
+              CliStyle.info(`--> Updating context for ${resultItem.path}`)
             );
             currentContextItems[existingItemIndex] = resultItem;
           } else {
@@ -296,30 +296,30 @@ export async function prepareAutoContext(
 
       if (currentContextItems.length > maxFiles) {
         console.log(
-          CliStyle.warning(`Context limit (${maxFiles}) reached. Exiting.`),
+          CliStyle.warning(`Context limit (${maxFiles}) reached. Exiting.`)
         );
         break;
       }
     }
 
     console.log(
-      CliStyle.info(`Current context items: ${currentContextItems.length}`),
+      CliStyle.info(`Current context items: ${currentContextItems.length}`)
     );
   }
 
   if (!sufficient) {
     console.log(
       CliStyle.warning(
-        `Max rounds (${maxRounds}) reached, but AI did not confirm context sufficiency.`,
-      ),
+        `Max rounds (${maxRounds}) reached, but AI did not confirm context sufficiency.`
+      )
     );
   }
 
   const validItems = await validateFilePaths(currentContextItems);
   console.log(
     CliStyle.success(
-      `\n===== Auto Context Complete: Collected ${validItems.length} valid items =====`,
-    ),
+      `\n===== Auto Context Complete: Collected ${validItems.length} valid items =====`
+    )
   );
   return validItems;
 }
@@ -328,7 +328,7 @@ function buildUserPromptForContextAgent(
   task: string,
   projectKnowledge: string,
   currentFiles: FileContextItem[],
-  round: number,
+  round: number
 ): string {
   let prompt = `**User's Primary Task:**\n"${task}"\n\n`;
 
