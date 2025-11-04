@@ -193,15 +193,17 @@ export async function processRequest(
   const startTime = Date.now();
   let receivedChars = 0;
 
-  // 更新显示计时
-  const timer = setInterval(() => {
+  const updateSpinner = () => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     if (receivedChars > 0) {
-      aiSpinner.text = `AI响应中... (${elapsed}s, ${receivedChars} Received)`;
+      aiSpinner.text = `AI流式响应中... (${elapsed}s, ${receivedChars} Received)`;
     } else {
       aiSpinner.text = `AI思考中... (${elapsed}s)`;
     }
-  }, 1000);
+  };
+
+  // 更新计时
+  const timer = setInterval(updateSpinner, 1000);
 
   try {
     const messages: ModelMessage[] = [
@@ -219,6 +221,7 @@ export async function processRequest(
       onChunk: (chunk: string, response: string) => {
         // 更新接收到的字符数
         receivedChars = response.length;
+        updateSpinner();
       }
     });
 
@@ -227,7 +230,7 @@ export async function processRequest(
 
     clearInterval(timer);
     const totalElapsed = Math.floor((Date.now() - startTime) / 1000);
-    aiSpinner.succeed(`AI响应成功 (${totalElapsed}s, ${receivedChars} 字符)`);
+    aiSpinner.succeed(`AI响应成功 (${totalElapsed}s, ${receivedChars} Total)`);
   } catch (error) {
     clearInterval(timer);
     aiSpinner.fail('AI响应获取失败');
