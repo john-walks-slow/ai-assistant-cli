@@ -231,7 +231,7 @@ program
  */
 program
   .command('history')
-  .description('管理历史记录。')
+  .description('管理历史记录。(~/.mai/history.json)')
   .addCommand(
     new Command('list')
       .description('列出所有可用历史记录。')
@@ -349,7 +349,7 @@ program
  */
 program
   .command('config')
-  .description('管理和查看配置项。')
+  .description('管理和查看配置项。(~/.mai/config.json5)')
   .addCommand(
     new Command('list').description('列出当前配置。').action(async () => {
       await listConfig();
