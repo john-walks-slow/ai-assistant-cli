@@ -181,9 +181,8 @@ export async function processRequest(
     actualTemperature = await getTemperature();
   }
 
-  console.log(CliStyle.process('AI正在思考您的请求...'));
   const aiSpinner = ora({
-    text: 'AI生成响应中',
+    text: 'AI思考中',
     spinner: {
       interval: 80,
       frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
@@ -206,10 +205,10 @@ export async function processRequest(
     aiResponse = await streamAiResponse(messages, {
       model,
       temperature: actualTemperature,
-      onChunk: (chunk: string) => {
+      onChunk: (chunk: string, response: string) => {
         // 在流式输出时更新 spinner
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        aiSpinner.text = `AI流式响应中... (${elapsed}s)`;
+        aiSpinner.text = `AI流式响应中... (Received: ${response.length}, ${elapsed}s)`;
       }
     });
 
