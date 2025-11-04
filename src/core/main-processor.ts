@@ -14,7 +14,7 @@ import { constructSystemPrompt, createUserPrompt } from '../constants/prompts';
 import { parseAiResponse } from './ai-response-parser';
 import { reviewAndExecutePlan } from './plan-reviewer';
 import { FileContextItem, getFileContext } from './file-context';
-import { getAiResponse } from '../utils/network';
+import { getAiResponse, streamAiResponse } from '../utils/network';
 import {
   formatHistoryContext,
   formatMultipleHistoryContexts,
@@ -191,14 +191,7 @@ export async function processRequest(
 
   let aiResponse: string;
   const startTime = Date.now();
-  let updateInterval: NodeJS.Timeout | undefined = undefined;
   try {
-    // 模拟流式进度，定期更新 spinner 文本
-    updateInterval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      aiSpinner.text = `AI生成响应中... (${elapsed}s)`;
-    }, 1000);
-
     const messages = [
       ...(actualSystemPrompt
         ? [{ role: 'system', content: actualSystemPrompt }]
@@ -208,15 +201,24 @@ export async function processRequest(
       ...(fileContext ? [{ role: 'user', content: fileContext }] : [])
     ];
 
-    aiResponse = await getAiResponse(messages, 3, model, actualTemperature);
+    // 使用流式响应，在命令行中即时更新显示
+    aiResponse = await streamAiResponse(messages, {
+      model,
+      temperature: actualTemperature,
+      onChunk: (chunk: string) => {
+        // 在流式输出时更新 spinner
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        aiSpinner.text = `AI流式响应中... (${elapsed}s)`;
+      }
+    });
+
     const messagesJson = JSON.stringify(messages, null, 2);
     await saveAiResponseToTempFile(aiResponse, messagesJson);
-    clearInterval(updateInterval);
+
     aiSpinner.succeed(
-      `AI响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`
+      `AI流式响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`
     );
   } catch (error) {
-    if (updateInterval) clearInterval(updateInterval);
     aiSpinner.fail('AI响应获取失败');
     console.error(CliStyle.error(`AI请求失败: ${(error as Error).message}`));
     throw error;

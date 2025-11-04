@@ -1,4 +1,5 @@
 # MAI - 轻量文件编辑 AI CLI
+
 <p>
   <a href="https://www.npmjs.com/package/@johnnren/mai-cli">
     <img src="https://img.shields.io/npm/v/@johnnren/mai-cli.svg" alt="NPM Version">

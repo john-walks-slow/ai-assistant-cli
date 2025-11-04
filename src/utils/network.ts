@@ -1,11 +1,13 @@
-import axios, { AxiosError } from 'axios';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { generateText, streamText } from 'ai';
 import * as fs from 'fs/promises';
 import { CliStyle } from './cli-style';
 import {
   getApiEndpoint,
   getApiKey,
   getCurrentModel,
-  getCurrentModelName
+  getCurrentModelName,
+  parseModel
 } from './config-manager';
 
 /**
@@ -16,81 +18,112 @@ const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * AI API响应中的单个选择。
+ * 流式生成 AI 响应的文本。
+ * @param messages - 发送给 AI 的消息数组。
+ * @param options - 可选的生成选项。
+ * @returns 生成的文本流。
+ * @throws {Error} 如果 AI 请求失败。
  */
-interface AiChoice {
-  message: {
-    content: string;
-  };
-}
-
-/**
- * AI API响应的整体结构。
- */
-interface AiApiResponse {
-  choices: AiChoice[];
-}
-
-/**
- * 使用 Axios 发送网络请求的工具类。
- * 此版本使用 Axios 替代 cURL，提供更好的错误处理和 promises 支持。
- */
-export class AxiosNetwork {
-  /**
-   * 执行一个网络请求。
-   * @param options - 请求选项。
-   * @returns 返回一个 Promise，成功时解析为服务器响应的 JSON 对象。
-   */
-  static async invoke<T = any>(options: {
-    uri: string;
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-    headers?: Record<string, string>;
-    body?: Record<string, any> | any[];
-    timeout?: number; // 超时时间 (毫秒)，默认为 60000 ms
-  }): Promise<T> {
-    const {
-      uri,
-      method = 'POST',
-      headers = {},
-      body,
-      timeout = 300000 // 默认五分钟超时
-    } = options;
-
-    // 构造请求配置
-    const finalHeaders = {
-      'Content-Type': 'application/json;charset=utf-8',
-      ...headers
-    };
-
-    const config = {
-      url: uri,
-      method: method.toUpperCase(),
-      headers: finalHeaders,
-      data: body ? JSON.stringify(body) : undefined,
-      timeout
-    };
-
-    try {
-      const response = await axios(config);
-      if (response.status === 204) {
-        // 对于 204 No Content 等情况，返回 null
-        return null as any;
-      }
-      return response.data;
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        const axiosError = error as AxiosError;
-        const errorMessage = axiosError.response?.data
-          ? JSON.stringify(axiosError.response.data)
-          : axiosError.message;
-        throw new Error(
-          `Axios request failed with status ${axiosError.response?.status || 'unknown'}: ${errorMessage}`
-        );
-      } else {
-        throw new Error(`Unexpected error: ${String(error)}`);
-      }
-    }
+export async function streamAiResponse(
+  messages: { role: string; content: string }[],
+  options?: {
+    model?: string;
+    temperature?: number;
+    onChunk?: (chunk: string) => void;
   }
+): Promise<string> {
+  const {
+    model = await getCurrentModel(),
+    temperature,
+    onChunk
+  } = options || {};
+
+  const modelName = await getCurrentModelName();
+  if (!modelName) {
+    throw new Error('无法获取模型名称');
+  }
+
+  // 解析提供商信息
+  const parsedModel = await parseModel(model);
+  if (!parsedModel) {
+    throw new Error(`无效的模型格式: ${model}`);
+  }
+
+  // 获取 API 端点和密钥
+  const apiEndpoint = await getApiEndpoint(model);
+  const apiKey = await getApiKey(model);
+
+  CliStyle.printDebug('--- AI 流式请求配置 ---');
+  CliStyle.printDebugContent(
+    JSON.stringify(
+      {
+        provider: parsedModel.provider,
+        model: modelName,
+        endpoint: apiEndpoint,
+        messages: messages.length
+      },
+      null,
+      2
+    )
+  );
+  CliStyle.printDebug('----------------------------');
+
+  // 根据提供商创建对应的 AI SDK 客户端
+  const client = createOpenAICompatible({
+    name: parsedModel.provider,
+    baseURL: apiEndpoint,
+    apiKey: apiKey
+  });
+
+  // 设置生成参数
+  const generateOptions: any = {
+    model: modelName,
+    messages,
+    temperature: temperature !== undefined ? temperature : 0.7
+  };
+
+  // 使用流式生成文本
+  const result = await streamText({
+    ...generateOptions,
+    provider: client
+  });
+
+  // 初始化响应缓冲区
+  let fullResponse = '';
+  let hasStartedStreaming = false;
+
+  CliStyle.printDebug('--- 开始接收流式响应 ---');
+
+  // 逐个处理文本块
+  for await (const delta of result.textStream) {
+    // 如果是首次接收到流数据
+    if (!hasStartedStreaming) {
+      console.log(); // 新行开始流式输出
+      hasStartedStreaming = true;
+    }
+
+    // 累积响应内容
+    fullResponse += delta;
+
+    // 触发增量回调
+    if (onChunk) {
+      onChunk(delta);
+    }
+
+    // 在命令行中即时更新收到的响应
+    process.stdout.write(delta);
+  }
+
+  // 结束流式输出
+  if (hasStartedStreaming) {
+    console.log(); // 流结束后换行
+  }
+
+  CliStyle.printDebug('--- AI 流式响应结束 ---');
+  CliStyle.printDebugContent(fullResponse.trim());
+  CliStyle.printDebug('----------------------------');
+
+  return fullResponse.trim();
 }
 
 /**
@@ -99,6 +132,7 @@ export class AxiosNetwork {
  * @param retries - 失败时重试次数。
  * @param model - 可选的模型名称。
  * @param temperature - 可选的temperature参数。
+ * @param streamCallback - 可选的流式回调函数，用于处理实时响应。
  * @returns AI响应的字符串内容。
  * @throws {Error} 如果AI请求失败。
  */
@@ -106,48 +140,36 @@ export async function getAiResponse(
   messages: { role: string; content: string }[],
   retries = 3,
   model?: string,
-  temperature?: number
+  temperature?: number,
+  streamCallback?: (chunk: string) => void
 ): Promise<string> {
   const modelName = model || (await getCurrentModelName()); // Use specified model or fallback to current
-  const payload: any = {
-    model: modelName,
-    messages
-  };
-
-  // 如果提供了temperature，则添加到payload
-  if (temperature !== undefined) {
-    payload.temperature = temperature;
-  }
 
   CliStyle.printDebug('--- 原始AI请求负载 ---');
-  CliStyle.printDebugContent(JSON.stringify(payload, null, 2));
+  CliStyle.printDebugContent(
+    JSON.stringify(
+      {
+        model: modelName,
+        messages: messages.length,
+        temperature: temperature
+      },
+      null,
+      2
+    )
+  );
   CliStyle.printDebug('-------------------------------------');
 
   for (let i = 0; i < retries; i++) {
     try {
-      const aiResponse: AiApiResponse = await AxiosNetwork.invoke({
-        uri: await getApiEndpoint(model), // Use centralized getApiEndpoint with model
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${await getApiKey(model)}` // Use centralized getApiKey with model
-        },
-        body: payload
+      const response = await streamAiResponse(messages, {
+        model,
+        temperature,
+        onChunk: streamCallback
       });
 
-      CliStyle.printDebug('--- 原始AI响应负载 ---');
-      CliStyle.printDebugContent(aiResponse.choices[0].message.content.trim());
-      CliStyle.printDebug('-------------------------------------');
-      if (
-        aiResponse.choices &&
-        aiResponse.choices.length > 0 &&
-        aiResponse.choices[0].message?.content
-      ) {
-        return aiResponse.choices[0].message.content.trim();
+      if (response && response.trim()) {
+        return response.trim();
       } else {
-        console.error(
-          '错误：AI响应格式不符合预期。',
-          JSON.stringify(aiResponse)
-        );
         throw new Error('无效的AI响应格式。');
       }
     } catch (error) {
