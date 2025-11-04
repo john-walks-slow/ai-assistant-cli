@@ -10,18 +10,20 @@ import { processRequest } from '../core/main-processor';
 const PLACEHOLDER_REGEX = /\{\{(\w+?)\}\}/g;
 
 /**
- * 列出所有可用的提示模板。
+ * 列出所有可用的提示词模板。
  */
 export async function listTemplates(): Promise<void> {
   try {
     const config = await loadConfig();
     const templates = config.templates || [];
 
-    console.log(CliStyle.info('\n--- 可用的提示模板 ---'));
+    console.log(CliStyle.info('\n--- 可用的提示词模板 ---'));
     if (templates.length === 0) {
       console.log(
         CliStyle.muted(
-          `未找到任何模板。通过编辑 ${CliStyle.filePath(getConfigFile())} 添加模板。`
+          `未找到任何模板。通过编辑 ${CliStyle.filePath(
+            getConfigFile()
+          )} 添加模板。`
         )
       );
     } else {
@@ -31,7 +33,10 @@ export async function listTemplates(): Promise<void> {
           console.log(`   描述: ${CliStyle.muted(template.description)}`);
         }
         console.log(
-          `   模板: ${CliStyle.muted(template.template.substring(0, 70) + (template.template.length > 70 ? '...' : ''))}`
+          `   模板: ${CliStyle.muted(
+            template.template.substring(0, 70) +
+              (template.template.length > 70 ? '...' : '')
+          )}`
         );
         console.log();
       });
@@ -72,7 +77,7 @@ export async function showTemplate(templateName: string): Promise<void> {
 }
 
 /**
- * 应用指定的提示模板。
+ * 应用指定的提示词模板。
  * @param templateName - 要应用的模板名称。
  * @param files - 作为上下文的文件列表。
  * @param options - 包含用户输入、选择和自定义占位符值的选项。

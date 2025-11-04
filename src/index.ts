@@ -75,28 +75,13 @@ program
       let actualPrompt: string;
       let systemToUse: string | undefined = undefined;
 
-      // 检查是否为 'ask:' 或 'ask：' 命令
-      const trimmedPrompt = promptArg.trim();
-      if (
-        trimmedPrompt.startsWith('ask:') ||
-        trimmedPrompt.startsWith('ask：')
-      ) {
-        const prefixLength = trimmedPrompt.startsWith('ask:') ? 4 : 5;
-        actualPrompt = trimmedPrompt.substring(prefixLength).trim();
-        systemToUse = '';
-      } else {
-        actualPrompt = promptArg;
-      }
+      actualPrompt = promptArg;
 
       // 处理 -c 选项
       if (options.chat) {
         systemToUse = '';
         console.log(CliStyle.info('使用 -c 选项：忽略系统提示词。'));
       }
-
-      // 解析 historyIds 和 historyDepth
-      let historyIds: string[] | undefined;
-      let historyDepth: number | undefined;
 
       try {
         // 解析 historyIds 和 historyDepth
@@ -297,14 +282,14 @@ program
     })
   );
 /**
- * 定义 'template' 命令，用于管理和应用提示模板。
+ * 定义 'template' 命令，用于管理和应用提示词模板。
  */
 program
   .command('template')
-  .description('管理和应用AI提示模板。')
+  .description('管理和应用AI提示词模板。')
   .addCommand(
     new Command('list')
-      .description('列出所有可用的提示模板。')
+      .description('列出所有可用的提示词模板。')
       .action(async () => {
         await listTemplates();
       })
@@ -312,7 +297,7 @@ program
   .addCommand(
     new Command('show')
       .argument('<name>', '要显示详情的模板名称。')
-      .description('显示指定提示模板的详细信息。')
+      .description('显示指定提示词模板的详细信息。')
       .action(async (name: string) => {
         await showTemplate(name);
       })
@@ -326,7 +311,7 @@ program
       )
       .option('-i, --input <value>', '用于填充 {{user_input}} 占位符的值。')
       .option('-s, --selection <value>', '用于填充 {{selection}} 占位符的值。')
-      .description('应用指定的提示模板，并用提供的文件和输入填充占位符。')
+      .description('应用指定的提示词模板，并用提供的文件和输入填充占位符。')
       .action(
         async (
           name: string,
@@ -364,7 +349,7 @@ program
  */
 program
   .command('config')
-  .description('管理和查看AI助手配置（模型、系统提示词等）。')
+  .description('管理和查看配置项。')
   .addCommand(
     new Command('list').description('列出当前配置。').action(async () => {
       await listConfig();
