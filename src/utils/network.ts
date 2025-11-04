@@ -1,5 +1,5 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText, streamText } from 'ai';
+import { generateText, ModelMessage, streamText } from 'ai';
 import * as fs from 'fs/promises';
 import { CliStyle } from './cli-style';
 import {
@@ -9,6 +9,17 @@ import {
   getCurrentModelName,
   parseModel
 } from './config-manager';
+import { env } from 'process';
+import { setGlobalDispatcher, ProxyAgent } from 'undici';
+
+if (env.https_proxy) {
+  // Corporate proxy uses CA not in undici's certificate store
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  const dispatcher = new ProxyAgent({
+    uri: new URL(env.https_proxy).toString()
+  });
+  setGlobalDispatcher(dispatcher);
+}
 
 /**
  * 延迟执行指定毫秒数。
@@ -25,7 +36,7 @@ const delay = (ms: number): Promise<void> =>
  * @throws {Error} 如果 AI 请求失败。
  */
 export async function streamAiResponse(
-  messages: { role: string; content: string }[],
+  messages: ModelMessage[],
   options?: {
     model?: string;
     temperature?: number;
@@ -52,7 +63,6 @@ export async function streamAiResponse(
   // 获取 API 端点和密钥
   const apiEndpoint = await getApiEndpoint(model);
   const apiKey = await getApiKey(model);
-
   CliStyle.printDebug('--- AI 流式请求配置 ---');
   CliStyle.printDebugContent(
     JSON.stringify(
@@ -75,17 +85,11 @@ export async function streamAiResponse(
     apiKey: apiKey
   });
 
-  // 设置生成参数
-  const generateOptions: any = {
-    model: modelName,
-    messages,
-    temperature: temperature !== undefined ? temperature : 0.7
-  };
-
   // 使用流式生成文本
-  const result = await streamText({
-    ...generateOptions,
-    provider: client
+  const result = streamText({
+    model: client(modelName),
+    messages: messages,
+    temperature: temperature !== undefined ? temperature : 0.7
   });
 
   // 初始化响应缓冲区
@@ -137,7 +141,7 @@ export async function streamAiResponse(
  * @throws {Error} 如果AI请求失败。
  */
 export async function getAiResponse(
-  messages: { role: string; content: string }[],
+  messages: ModelMessage[],
   retries = 3,
   model?: string,
   temperature?: number,

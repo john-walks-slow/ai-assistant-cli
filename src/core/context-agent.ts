@@ -9,6 +9,7 @@ import {
 } from '../utils/file-utils';
 import { getAiResponse, streamAiResponse } from '../utils/network';
 import { FileContextItem } from './file-context';
+import { ModelMessage } from 'ai';
 
 interface AiContextSuggestion {
   reasoning: string;
@@ -180,9 +181,7 @@ export async function prepareAutoContext(
   let sufficient = false;
 
   const systemPrompt = await getContextAgentSystemPrompt();
-  const messages: { role: string; content: string }[] = [
-    { role: 'system', content: systemPrompt }
-  ];
+  const messages: ModelMessage[] = [{ role: 'system', content: systemPrompt }];
 
   for (let round = 1; round <= maxRounds && !sufficient; round++) {
     console.log(
@@ -213,7 +212,9 @@ export async function prepareAutoContext(
     );
     console.log(
       CliStyle.info(
-        `AI's current reasoning: ${suggestion.reasoning || 'No reasoning provided.'}`
+        `AI's current reasoning: ${
+          suggestion.reasoning || 'No reasoning provided.'
+        }`
       )
     );
 
@@ -221,7 +222,9 @@ export async function prepareAutoContext(
     if (sufficient) {
       console.log(
         CliStyle.success(
-          `AI has determined the context is sufficient. Reason: ${suggestion.reasoning || 'No specific reason provided.'}`
+          `AI has determined the context is sufficient. Reason: ${
+            suggestion.reasoning || 'No specific reason provided.'
+          }`
         )
       );
       break;
@@ -240,7 +243,9 @@ export async function prepareAutoContext(
     for (const action of suggestion.suggestedActions) {
       console.log(
         CliStyle.info(
-          `Executing AI action: ${action.type} - ${JSON.stringify(action.params)}`
+          `Executing AI action: ${action.type} - ${JSON.stringify(
+            action.params
+          )}`
         )
       );
 
@@ -253,7 +258,9 @@ export async function prepareAutoContext(
           );
           console.log(
             CliStyle.info(
-              `--> Removed ${beforeCount - currentContextItems.length} items matching ${path}`
+              `--> Removed ${
+                beforeCount - currentContextItems.length
+              } items matching ${path}`
             )
           );
         }
@@ -343,7 +350,9 @@ function buildUserPromptForContextAgent(
       const contextComment = currentFiles
         .map((item) => {
           const status = item.content ? '[Content Read]' : '[Path Only]';
-          return `- ${status} ${item.path}${item.start ? ` (lines ${item.start}-${item.end})` : ''}: ${item.comment || 'Content snippet'}`;
+          return `- ${status} ${item.path}${
+            item.start ? ` (lines ${item.start}-${item.end})` : ''
+          }: ${item.comment || 'Content snippet'}`;
         })
         .join('\n');
       prompt += `**Current Collected Context Comment:**\n${contextComment}\n\n`;

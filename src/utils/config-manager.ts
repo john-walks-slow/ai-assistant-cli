@@ -41,12 +41,12 @@ export type ProvidersConfig = Record<string, ProviderConfig>;
 
 export const DEFAULT_PROVIDERS: ProvidersConfig = {
   openai: {
-    url: 'https://api.openai.com/v1/chat/completions',
+    url: 'https://api.openai.com/v1',
     models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
     apiKeyEnv: 'OPENAI_API_KEY'
   },
   openrouter: {
-    url: 'https://openrouter.ai/api/v1/chat/completions',
+    url: 'https://openrouter.ai/api/v1',
     models: [
       'x-ai/grok-code-fast-1',
       'qwen/qwen3-coder:free',
@@ -56,7 +56,7 @@ export const DEFAULT_PROVIDERS: ProvidersConfig = {
     apiKeyEnv: 'OPENROUTER_API_KEY'
   },
   gemini: {
-    url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions',
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1',
     models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
     apiKeyEnv: 'GEMINI_API_KEY'
   }
