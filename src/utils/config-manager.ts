@@ -7,19 +7,9 @@ import JSON5 from 'json5';
 import { MAI_CONFIG_DIR_NAME, CONFIG_FILE_NAME } from '../constants/mai-data';
 
 /**
- * 定义一个可配置的提示词模板。
- */
-export interface PromptTemplate {
-  name: string; // 模板的唯一名称
-  template: string; // 实际的提示词模板字符串，支持占位符
-  description?: string; // 模板的可选描述
-}
-
-/**
  * MaiCLI 配置接口。
  */
 export interface MaiConfig {
-  templates?: PromptTemplate[]; // 用户定义的提示词模板列表
   model?: string;
   systemPrompt?: string; // 支持从配置文件配置系统提示词
   historyDepth?: number; // 默认历史深度，用于自动注入最近N条历史

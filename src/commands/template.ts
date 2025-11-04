@@ -1,7 +1,8 @@
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import inquirer from 'inquirer';
 import { CliStyle } from '../utils/cli-style';
-import { loadConfig, getConfigFile } from '../utils/config-manager';
+import { TemplateManager } from '../utils/template-manager';
 import { processRequest } from '../core/main-processor';
 
 /**
@@ -14,16 +15,13 @@ const PLACEHOLDER_REGEX = /\{\{(\w+?)\}\}/g;
  */
 export async function listTemplates(): Promise<void> {
   try {
-    const config = await loadConfig();
-    const templates = config.templates || [];
+    const templates = await TemplateManager.listTemplates();
 
     console.log(CliStyle.info('\n--- 可用的提示词模板 ---'));
     if (templates.length === 0) {
       console.log(
         CliStyle.muted(
-          `未找到任何模板。通过编辑 ${CliStyle.filePath(
-            getConfigFile()
-          )} 添加模板。`
+          `未找到任何模板。请使用 'mai template create <名称>' 创建模板。`
         )
       );
     } else {
@@ -38,6 +36,7 @@ export async function listTemplates(): Promise<void> {
               (template.template.length > 70 ? '...' : '')
           )}`
         );
+        console.log(`   路径: ${CliStyle.muted(template.filePath)}`);
         console.log();
       });
     }
@@ -54,8 +53,7 @@ export async function listTemplates(): Promise<void> {
  */
 export async function showTemplate(templateName: string): Promise<void> {
   try {
-    const config = await loadConfig();
-    const template = config.templates?.find((t) => t.name === templateName);
+    const template = await TemplateManager.getTemplate(templateName);
 
     if (!template) {
       console.error(
@@ -68,10 +66,164 @@ export async function showTemplate(templateName: string): Promise<void> {
     if (template.description) {
       console.log(`描述: ${template.description}`);
     }
+    console.log(`路径: ${template.filePath}`);
     console.log(`模板内容:\n${CliStyle.muted(template.template)}`);
     console.log(CliStyle.info('--------------------------\n'));
   } catch (error) {
     console.error(CliStyle.error(`显示模板失败: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * 创建新模板（文件系统模式）
+ */
+export async function createTemplate(
+  name: string,
+  format: 'txt' | 'md' = 'md',
+  description?: string
+): Promise<void> {
+  if (!TemplateManager.isValidTemplateName(name)) {
+    console.error(CliStyle.error(`错误: 无效的模板名称 '${name}'`));
+    console.error(
+      CliStyle.muted('模板名称不能包含特殊字符，长度应在1-50字符之间')
+    );
+    process.exit(1);
+  }
+
+  try {
+    // 检查模板是否已存在
+    const existingFileTemplate = await TemplateManager.getTemplate(name);
+
+    if (existingFileTemplate) {
+      console.error(CliStyle.error(`错误: 模板 '${name}' 已存在`));
+      console.error(CliStyle.muted(`路径: ${existingFileTemplate.filePath}`));
+      process.exit(1);
+    }
+    let templateContent = '';
+    await TemplateManager.createTemplate(
+      name,
+      templateContent,
+      format,
+      description
+    );
+    console.log(
+      CliStyle.success(
+        `模板 '${name}' 已创建在 ${await TemplateManager.getTemplatesDir()}`
+      )
+    );
+    console.log(CliStyle.muted(`使用 'mai template edit ${name}' 编辑模板`));
+  } catch (error) {
+    console.error(CliStyle.error(`创建模板失败: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * 编辑模板（支持文件系统模板）
+ */
+export async function editTemplate(templateName: string): Promise<void> {
+  try {
+    const fileTemplate = await TemplateManager.getTemplate(templateName);
+
+    if (!fileTemplate) {
+      console.error(CliStyle.error(`错误: 找不到模板 '${templateName}'`));
+      process.exit(1);
+    }
+
+    // 读取当前内容
+    const currentContent = await TemplateManager.readTemplateFile(
+      fileTemplate.filePath,
+      fileTemplate.fileName
+    );
+
+    if (!currentContent) {
+      console.error(
+        CliStyle.error(`读取模板文件失败: ${fileTemplate.filePath}`)
+      );
+      process.exit(1);
+    }
+
+    // 提取实际内容（去除描述部分）
+    const contentLines = currentContent.template.split('\n');
+    const contentStartIndex =
+      TemplateManager['findContentStartIndex'](
+        contentLines,
+        currentContent.format
+      ) || 0;
+    const actualContent = contentLines
+      .slice(contentStartIndex)
+      .join('\n')
+      .trim();
+
+    // 使用编辑器编辑
+    const editor = process.env.EDITOR || 'notepad';
+    const tempFile = path.join(
+      process.cwd(),
+      `.mai_template_edit_${Date.now()}.${currentContent.format}`
+    );
+
+    // 写入临时文件
+    await fs.writeFile(tempFile, actualContent, 'utf-8');
+
+    console.log(CliStyle.info(`使用 ${editor} 编辑模板 '${templateName}'...`));
+    console.log(CliStyle.muted('保存并关闭编辑器以应用更改'));
+
+    // 启动编辑器
+    const { execSync } = await import('child_process');
+    execSync(`${editor} "${tempFile}"`, { stdio: 'inherit' });
+
+    // 读取编辑后的内容
+    const newContent = await fs.readFile(tempFile, 'utf-8');
+
+    // 清理临时文件
+    await fs.unlink(tempFile);
+
+    if (newContent.trim() === actualContent.trim()) {
+      console.log(CliStyle.info('模板未更改'));
+      return;
+    }
+
+    // 更新模板
+    await TemplateManager.updateTemplate(
+      templateName,
+      newContent,
+      currentContent.description
+    );
+  } catch (error) {
+    console.error(CliStyle.error(`编辑模板失败: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * 删除模板
+ */
+export async function deleteTemplate(templateName: string): Promise<void> {
+  try {
+    const fileTemplate = await TemplateManager.getTemplate(templateName);
+
+    if (!fileTemplate) {
+      console.error(CliStyle.error(`错误: 找不到模板 '${templateName}'`));
+      process.exit(1);
+    }
+
+    const { confirm } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'confirm',
+        message: `确定要删除模板 '${templateName}' 吗？`,
+        default: false
+      }
+    ]);
+
+    if (confirm) {
+      await TemplateManager.deleteTemplate(templateName);
+    } else {
+      console.log(CliStyle.info('删除操作已取消'));
+    }
+  } catch (error) {
+    console.error(CliStyle.error(`删除模板失败: ${(error as Error).message}`));
     process.exit(1);
   }
 }
@@ -93,21 +245,21 @@ export async function applyTemplate(
   }
 ): Promise<void> {
   try {
-    const config = await loadConfig();
-    const template = config.templates?.find((t) => t.name === templateName);
+    // 从文件系统查找模板
+    const fileTemplate = await TemplateManager.getTemplate(templateName);
 
-    if (!template) {
+    if (!fileTemplate) {
       console.error(
         CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`)
       );
       process.exit(1);
     }
 
-    let expandedPrompt = template.template;
+    let expandedPrompt = fileTemplate.template;
     const placeholderValues: Record<string, string> = {};
 
     // 处理预定义占位符
-    if (template.template.includes('{{fileName}}')) {
+    if (fileTemplate.template.includes('{{fileName}}')) {
       placeholderValues.fileName =
         files.length > 0 ? path.basename(files[0]) : '';
     }
@@ -138,7 +290,7 @@ export async function applyTemplate(
     let match;
     // 使用非全局正则的副本进行匹配，避免 exec 的副作用
     const regexForFinding = new RegExp(PLACEHOLDER_REGEX.source, '');
-    while ((match = regexForFinding.exec(template.template)) !== null) {
+    while ((match = regexForFinding.exec(fileTemplate.template)) !== null) {
       const placeholderKey = match[1];
       if (placeholderValues[placeholderKey] === undefined) {
         // 如果占位符的值未通过 CLI 选项提供，则需要提示用户
@@ -166,7 +318,11 @@ export async function applyTemplate(
     });
 
     console.log(
-      CliStyle.process(`\n正在应用模板 '${templateName}'。最终指令:\n`)
+      CliStyle.process(
+        `\n正在应用模板 '${templateName}'${
+          fileTemplate.description ? ` (${fileTemplate.description})` : ''
+        }。最终指令:\n`
+      )
     );
     console.log(CliStyle.muted(expandedPrompt));
     console.log();

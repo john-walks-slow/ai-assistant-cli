@@ -19,7 +19,10 @@ import {
 import {
   applyTemplate,
   listTemplates,
-  showTemplate
+  showTemplate,
+  createTemplate,
+  editTemplate,
+  deleteTemplate
 } from './commands/template';
 import { startDelimiter } from './core/operation-definitions';
 
@@ -282,13 +285,20 @@ program
     })
   );
 /**
- * 定义 'template' 命令，用于管理和应用提示词模板。
+ * 定义 'template' 命令，用于管理和应用AI提示词模板。
+ * 模板存储在 ~/.mai/templates/ 目录中，支持 .txt 和 .md 格式。
  */
 program
   .command('template')
-  .description('管理和应用AI提示词模板。')
+  .description(`管理和应用存储在 ~/.mai/templates/ 目录中的AI提示词模板。
+  
+模板文件支持以下占位符:
+- {{fileName}}: 当前操作的文件名 (例如: index.ts)
+- {{selection}}: 编辑器中当前选中的文本
+- {{user_input}}: 通过 --input 选项提供的用户输入
+- {{<custom_key>}}: 通过 --set <key=value> 提供的自定义值`)
   .addCommand(
-    new Command('list')
+   new Command('list')
       .description('列出所有可用的提示词模板。')
       .action(async () => {
         await listTemplates();
@@ -303,6 +313,38 @@ program
       })
   )
   .addCommand(
+    new Command('create')
+      .argument('<name>', '要创建的模板名称。')
+      .option('-f, --format <format>', '模板格式 (txt|md)', 'md')
+      .option('-d, --description <description>', '模板描述')
+      .description('创建新的提示词模板。')
+      .action(
+        async (
+          name: string,
+          options: { format?: string; description?: string }
+        ) => {
+          const format = (options.format || 'md') as 'txt' | 'md';
+          await createTemplate(name, format, options.description);
+        }
+      )
+  )
+  .addCommand(
+    new Command('edit')
+      .argument('<name>', '要编辑的模板名称。')
+      .description('编辑指定的提示词模板。')
+      .action(async (name: string) => {
+        await editTemplate(name);
+      })
+  )
+  .addCommand(
+    new Command('delete')
+      .argument('<name>', '要删除的模板名称。')
+      .description('删除指定的提示词模板。')
+      .action(async (name: string) => {
+        await deleteTemplate(name);
+      })
+  )
+  .addCommand(
     new Command('apply')
       .argument('<name>', '要应用的模板名称。')
       .argument(
@@ -311,12 +353,25 @@ program
       )
       .option('-i, --input <value>', '用于填充 {{user_input}} 占位符的值。')
       .option('-s, --selection <value>', '用于填充 {{selection}} 占位符的值。')
+      .option(
+        '--set <key=value>',
+        '设置自定义占位符值（可多次使用）',
+        (value: string, previous: string[] = []) => {
+          previous.push(value);
+          return previous;
+        }
+      )
       .description('应用指定的提示词模板，并用提供的文件和输入填充占位符。')
       .action(
         async (
           name: string,
           files: string[],
-          options: { input?: string; selection?: string },
+          options: {
+            input?: string;
+            selection?: string;
+            set?: string[];
+            autoApply?: boolean;
+          },
           command: Command
         ) => {
           const allOptions = command.optsWithGlobals();

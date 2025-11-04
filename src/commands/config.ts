@@ -49,12 +49,6 @@ export async function listConfig(): Promise<void> {
       console.log(`系统提示词: ${CliStyle.warning('使用默认')}`);
     }
 
-    if (config.templates && config.templates.length > 0) {
-      console.log(`模板: ${config.templates.length} 个`);
-    } else {
-      console.log(`模板: ${CliStyle.warning('无')}`);
-    }
-
     console.log(
       CliStyle.info(
         `配置文件位置: ${path.join(os.homedir(), '.mai/config.json5')}`
