@@ -32,7 +32,7 @@
       apiKeyEnv: 'SILICONFLOW_API_KEY'
     }
   },
-  // 当前模型，格式为 provider/model。可以用 mai model select 变更。
+  // 当前模型，格式为 provider/model。可以用 mai model select 选择
   model: 'openrouter/minimax/minimax-m2:free',
   // 模型温度
   temperature: 0.8,

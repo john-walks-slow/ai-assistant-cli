@@ -20,8 +20,8 @@ mai "翻译注释为中文" *.{ts,tsx}
 ```
 
 ```
-⠏ AI生成响应中... (55s)
-✔ AI响应生成完成 (56s)
+⠏ AI流式响应中... (55s)
+✔ AI响应成功 (56s)
 
 --- 解析AI响应 ---
 解析到 5 个定界操作
@@ -65,6 +65,8 @@ mai "翻译注释为中文" *.{ts,tsx}
 
 通过 npm 全局安装：
 
+> 确保你已安装 [Node.js](https://nodejs.org/en/download/) 环境
+
 ```bash
 npm install -g @johnnren/mai-cli
 ```
@@ -88,7 +90,7 @@ export OPENROUTER_API_KEY="your_openrouter_api_key"
 
 ### 3. 配置文件
 
-MAI 的配置文件位于 `~/.mai/config.json5`。模板文件存储在 `~/.mai/templates` 目录中。
+MAI 的配置文件位于 `~/.mai/config.json5`。
 
 一个典型的配置示例如下：
 
@@ -127,7 +129,7 @@ MAI 的配置文件位于 `~/.mai/config.json5`。模板文件存储在 `~/.mai/
       apiKeyEnv: 'SILICONFLOW_API_KEY'
     }
   },
-  // 当前模型，格式为 provider/model。可以用 mai model select 变更。
+  // 当前模型，格式为 provider/model。可以用 mai model select 选择
   model: 'openrouter/minimax/minimax-m2:free',
   // 模型温度
   temperature: 0.8,
@@ -136,9 +138,15 @@ MAI 的配置文件位于 `~/.mai/config.json5`。模板文件存储在 `~/.mai/
 }
 ```
 
-## 帮助
+### 4. 提示词模板
 
-> 在命令行中使用 `-h` 或 `--help` 查看帮助。
+MAI 的提示词模板文件位于 `~/.mai/templates` 目录中，支持 `.txt` 或 `.md` 格式。
+
+MAI 自带 `helpme` 提示词模板，可以作为 AI 自动完成的轻量替代，与大多数编辑器配合使用。 (待补充...)
+
+## 使用
+
+> 在命令行中用 `-h` 或 `--help` 查看帮助
 
 ### 主命令
 
@@ -162,7 +170,7 @@ mai <prompt> [files...] [options]
 - `-m, --model <model>`: 指定使用的AI模型，覆盖默认配置
 - `-t, --temperature <number>`: 指定AI模型的temperature参数，控制输出的随机性 (0-2)
 
-### 模型管理
+### 模型选择
 
 #### `mai model`
 
@@ -175,7 +183,7 @@ mai <prompt> [files...] [options]
 
 #### `mai history`
 
-管理历史记录。(~/.mai/history.json)
+管理和使用历史记录。(~/.mai/history.json)
 
 - `list [-f, --file-only]`: 列出所有可用历史记录。`-f` 只显示包含文件操作的记录
 - `undo [id|name|~n]`: 撤销指定的历史记录所做的更改，而不删除该历史记录。默认为最近一次历史（`~1`）
@@ -187,7 +195,7 @@ mai <prompt> [files...] [options]
 
 #### `mai template`
 
-管理和应用 AI 提示词模板。模板文件存储在 `~/.mai/templates` 目录中，支持 `.txt` 或 `.md` 格式。
+管理和应用存储在 ~/.mai/templates/ 目录中的AI提示词模板。
 
 - `list`: 列出所有可用的提示词模板
 - `show <name>`: 显示指定提示词模板的详细内容
@@ -198,12 +206,6 @@ mai <prompt> [files...] [options]
   - `-i, --input <value>`: 用于填充 `{{user_input}}` 占位符的值
   - `-s, --selection <value>`: 用于填充 `{{selection}}` 占位符的值
   - `--set <key=value>`: 设置自定义占位符值（可多次使用）
-
-模板文件支持以下占位符:
-- `{{fileName}}`: 当前操作的文件名 (例如: index.ts)
-- `{{selection}}`: 编辑器中当前选中的文本
-- `{{user_input}}`: 通过 --input 选项提供的用户输入
-- `{{<custom_key>}}`: 通过 --set <key=value> 提供的自定义值`
 
 ### 设置管理
 

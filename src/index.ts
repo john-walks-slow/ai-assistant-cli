@@ -234,7 +234,7 @@ program
  */
 program
   .command('history')
-  .description('管理历史记录。(~/.mai/history.json)')
+  .description('管理和使用历史记录。(~/.mai/history.json)')
   .addCommand(
     new Command('list')
       .description('列出所有可用历史记录。')
@@ -294,9 +294,9 @@ program
     `管理和应用存储在 ~/.mai/templates/ 目录中的AI提示词模板。
   
 模板文件支持以下占位符:
-- {{fileName}}: 当前操作的文件名 (例如: index.ts)
-- {{selection}}: 编辑器中当前选中的文本
-- {{user_input}}: 通过 --input 选项提供的用户输入
+- {{fileName}}: 文件上下文中第一个文件的文件名 (例如: index.ts)
+- {{selection}}: 通过 --selection 提供的当前选中文本
+- {{user_input}}: 通过 --input 提供的用户输入
 - {{<custom_key>}}: 通过 --set <key=value> 提供的自定义值`
   )
   .addCommand(
