@@ -9,7 +9,7 @@
   </a>
 </p>
 
-MAI (Minimal AI I/O) 旨在成为一个最小化的命令行接口，让你通过自然语言指令编辑本地文件。
+MAI (Minimal AI Interface) 是一个最小化的命令行接口，允许你调用大语言模型编辑本地文件。
 
 ## 示例
 
@@ -50,12 +50,13 @@ mai "翻译注释为中文" *.ts *.tsx
 
 ## 特性
 
-- 单步响应，无复杂 Agentic 流程
-- 无状态，完全手动指定所需上下文（支持引用文件、glob 模式、操作历史）
-- 支持交互式审查文件编辑计划
-- 内置轻量操作历史（支持回退、重做）
+- 单步响应，极简 System Prompt
+- 默认无状态，完全手动指定所需上下文（支持引用文件、glob 模式、操作历史）
+- 基于分隔符的 Tool Calling 格式，避免 JSON 转义问题
+- 交互式审查文件编辑计划
+- 内置轻量操作历史（回退、重做）
 - 兼容任意 openai-compatible 模型
-- 支持将常用指令封装为模板，简化重复性任务
+- 支持将常用指令封装为模板，简化重复任务
 
 ## 安装与配置
 
@@ -69,7 +70,9 @@ npm install -g @johnnren/mai-cli
 
 ### 2. API Key
 
-MAI 通过环境变量读取 API keys。请根据你使用的模型，设置相应的环境变量：
+MAI 默认通过环境变量读取 API keys。
+
+> 你可以设置用逗号分割的多个 API key，mai 会自动进行负载均衡。
 
 ```bash
 # for OpenAI models
@@ -84,12 +87,42 @@ export OPENROUTER_API_KEY="your_openrouter_api_key"
 
 ### 3. 配置文件
 
-你可以在 `~/.mai/config.json5` 修改更多配置。
+MAI 的配置文件位于 `~/.mai/config.json5`。
 
 一个典型的配置示例如下：
 
 ```json5
 {
+  // 模型提供方设置
+  providers: {
+    openrouter: {
+      // OpenAI v1 baseUrl
+      url: 'https://openrouter.ai/api/v1',
+      // 定义可用的模型
+      models: [
+        'x-ai/grok-code-fast-1',
+        'qwen/qwen3-coder:free',
+        'moonshotai/kimi-k2:free',
+        'z-ai/glm-4.5-air:free'
+      ],
+      // 包含 API Key 的环境变量名
+      apiKeyEnv: 'OPENROUTER_API_KEY',
+      // 直接指定 API Key（覆盖 apiKeyEnv）
+      apiKey: 'xxxxx'
+    },
+    gemini: {
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1',
+      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+      apiKeyEnv: 'GEMINI_API_KEY'
+    }
+  },
+  // 当前模型，格式为 provider/model。可以用 mai model select 变更。
+  model: 'openrouter/x-ai/grok-code-fast-1',
+  // 模型温度
+  temperature: 0.8,
+  // 自动附带的历史上下文深度
+  historyDepth: 0,
+  // 定义模板
   templates: [
     {
       name: 'helpme',
@@ -101,92 +134,77 @@ export OPENROUTER_API_KEY="your_openrouter_api_key"
       description: '',
       template: '根据以下原则和示例，规范化给定代码的日志、注释风格和命名，提升其可读性和可维护性。\n\n**原则 (Principles):**\n\n1.  **极简:** 代码不言自明则**不加注释**。每一句注释和日志都应该提高信噪比，而非画蛇添足。\n2.  **命名:** 修复明显错误或误导性的命名，使其清晰易懂。目标是消除困惑，**无需**追求完美。\n3.  **文档:**\n    *   **注释:**\n        *   简要概括业务意图，而非翻译代码。注释/代码比例约 1:5。\n        *   语言风格应模仿人类开发者：精确、简洁，可以*略带*口语化。\n    *   **日志:**\n        *   在关键的生命周期、函数入口和错误捕获点添加日志。\n        *   使用清晰、简单的英语，目标是让中国开发者也能轻松理解。\n\n**核心约束 (Core Constraint):**\n\n*   **严禁进行任何功能性改动**。\n*   你的唯一目标是使代码符合上述所有规范。\n*   重构有价值的旧注释和日志，移除不符合规范的内容。\n*   所有由 AI 生成或修改的文本（注释、日志等）都必须以 `[AIGC]` 作为前缀。'
     }
-  ],
-  historyDepth: 0,
-  model: 'openrouter/x-ai/grok-code-fast-1',
-  temperature: 0.8,
-  providers: {
-    openrouter: {
-      url: 'https://openrouter.ai/api/v1/chat/completions',
-      models: [
-        'x-ai/grok-code-fast-1',
-        'qwen/qwen3-coder:free',
-        'moonshotai/kimi-k2:free',
-        'z-ai/glm-4.5-air:free'
-      ],
-      apiKeyEnv: 'OPENROUTER_API_KEY'
-    },
-    gemini: {
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions',
-      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-      apiKeyEnv: 'GEMINI_API_KEY'
-    }
-  }
+  ]
 }
 ```
 
-## 使用指南
+## 帮助
+
+> 在命令行中使用 `-h` 或 `--help` 查看帮助。
 
 ### 主命令
 
 ```bash
-mai [prompt] [files...] [options]
+mai <prompt> [files...] [options]
 ```
 
 **参数:**
 
-- `prompt`: 你的指令。如果留空，将进入交互模式。
-- `files...`: 作为上下文的文件列表。
-  - 支持 glob 模式, e.g., `"src/**/*.ts"`
-  - 支持指定行数范围, e.g., `"src/index.ts:10-20"`
+- `prompt`: 你的指令。
+- `files...`: 作为上下文的文件列表
+  - 支持 glob 模式，例如 `"src/**/*.ts"`
+  - 支持指定行数范围，例如 `"src/index.ts:10-20"`
 
 **选项:**
 
-- `-y, --auto-apply`: 自动应用计划，跳过审查步骤。
-- `-r, --history <ids>`: 引用历史记录作为上下文 (e.g., `~1`, `~2,some_id`)。
-- `-d, --history-depth <number>`: 覆盖配置中的默认历史深度。
-- `-c, --chat`: 忽略系统提示词，进行无引导的对话。
-- `-m, --model <model>`: 指定本次请求使用的模型，覆盖默认配置。
-- `-t, --temperature <number>`: 指定模型的 temperature (0-2)。
+- `-y, --auto-apply`: 自动应用计划，无需用户确认（假设计划正确）
+- `-r, --ref-history <ids>`: 引用历史记录 ID、名称或索引列表（逗号分隔，如 `~1,id2`）作为上下文。`~1` 代表最近的一次历史
+- `-d, --history-depth <number>`: 历史深度，自动加载最近 N 条历史（默认从配置或 0）
+- `-c, --chat`: 忽略系统提示词
+- `-a, --auto-context`: （实验性，不建议尝试）启用自动上下文准备，使用 AI 收集相关文件上下文
+- `-m, --model <model>`: 指定使用的AI模型，覆盖默认配置
+- `-t, --temperature <number>`: 指定AI模型的temperature参数，控制输出的随机性 (0-2)
 
 ### 子命令
 
 #### `mai history`
 
-管理操作历史。
+管理历史记录。
 
-- `list [-f, --file-only]`: 列出历史记录。`-f` 只显示包含文件操作的记录。
-- `undo <id>`: 撤销指定历史记录的更改。`<id>` 可以是 ID, 名称, 或索引 (`~1`)。
-- `redo <id>`: 重新应用指定历史记录的更改。
-- `delete <id>`: 删除指定的历史记录。
-- `clear`: 清除所有历史记录。
+- `list [-f, --file-only]`: 列出所有可用历史记录。`-f` 只显示包含文件操作的记录
+- `undo [id|name|~n]`: 撤销指定的历史记录所做的更改，而不删除该历史记录。默认为最近一次历史（`~1`）
+- `redo [id|name|~n]`: 重新应用指定的历史记录所做的更改，而不删除历史记录。默认为最近一次历史（`~1`）
+- `delete <id|name|~n>`: 删除指定的历史记录
+- `clear`: 清除所有历史记录
 
 #### `mai model`
 
-管理和选择 AI 模型。
+管理和选择AI模型。
 
-- `list`: 列出所有可用模型，并高亮显示当前默认模型。
-- `select`: 通过交互式列表选择一个新的默认模型。
+- `list`: 列出所有可用的AI模型，并显示当前选中
+- `select`: 交互式选择AI模型
 
 #### `mai config`
 
-管理配置。
+管理和查看配置项。
 
-- `list`: 列出当前所有配置项及其值。
-- `set <key> <value>`: 设置一个配置项。
-- `reset`: 重置所有配置为默认值。
+- `list`: 列出当前配置
+- `set <key> <value>`: 直接设置配置项（如 `mai config set model x-ai/grok-code-fast-1`）
+- `reset`: 重置所有配置到默认值
 
 #### `mai template`
 
-管理和应用模板。
+管理和应用AI提示词模板。
 
-- `list`: 列出所有可用模板。
-- `show <name>`: 显示指定模板的详细信息。
-- `apply <name> [files...] [options]`: 应用指定的模板。
+- `list`: 列出所有可用的提示词模板
+- `show <name>`: 显示指定提示词模板的详细信息
+- `apply <name> [files...] [options]`: 应用指定的提示词模板，并用提供的文件和输入填充占位符
+  - `-i, --input <value>`: 用于填充 `{{user_input}}` 占位符的值
+  - `-s, --selection <value>`: 用于填充 `{{selection}}` 占位符的值
 
 #### `mai exec-plan <planSource>`
 
-从文件或直接字符串执行一个操作计划。
+从文件路径或直接字符串执行给定计划。支持 JSON 和定界（delimited）两种格式。
 
 ## 开发
 
