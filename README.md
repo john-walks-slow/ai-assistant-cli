@@ -204,6 +204,12 @@ npm link
 npm run dev
 ```
 
+**更新版本号并发布（自动触发 Workflow）**
+```bash
+npm version patch
+git push origin --tags
+```
+
 ## License
 
 MIT
