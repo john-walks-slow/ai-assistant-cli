@@ -142,7 +142,7 @@ MAI 的配置文件位于 `~/.mai/config.json5`。
 
 MAI 的提示词模板文件位于 `~/.mai/templates` 目录中，支持 `.txt` 或 `.md` 格式。
 
-MAI 自带 `helpme` 提示词模板，可以作为 AI 自动完成的轻量替代，与大多数编辑器配合使用。 (待补充...)
+MAI 自带 [`helpme`]("https://github.com/john-walks-slow/mai-cli/blob/main/resources/templates/helpme.md") 提示词模板，可以作为 AI 自动完成的轻量替代，与支持外部工具调用的编辑器配合使用。
 
 ## 使用
 
