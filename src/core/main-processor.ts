@@ -182,7 +182,7 @@ export async function processRequest(
   }
 
   const aiSpinner = ora({
-    text: 'AI思考中',
+    text: 'AI思考中...',
     spinner: {
       interval: 80,
       frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
@@ -191,6 +191,18 @@ export async function processRequest(
 
   let aiResponse: string;
   const startTime = Date.now();
+  let receivedChars = 0;
+
+  // 更新显示计时
+  const timer = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    if (receivedChars > 0) {
+      aiSpinner.text = `AI响应中... (${elapsed}s, ${receivedChars} Received)`;
+    } else {
+      aiSpinner.text = `AI思考中... (${elapsed}s)`;
+    }
+  }, 1000);
+
   try {
     const messages: ModelMessage[] = [
       ...(actualSystemPrompt
@@ -201,26 +213,28 @@ export async function processRequest(
       ...(fileContext ? [{ role: 'user', content: fileContext }] : [])
     ] as ModelMessage[];
 
-    // 使用流式响应，在命令行中即时更新显示
     aiResponse = await streamAiResponse(messages, {
       model,
       temperature: actualTemperature,
       onChunk: (chunk: string, response: string) => {
-        // 在流式输出时更新 spinner
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        aiSpinner.text = `AI流式响应中... (Received: ${response.length}, ${elapsed}s)`;
+        // 更新接收到的字符数
+        receivedChars = response.length;
       }
     });
 
     const messagesJson = JSON.stringify(messages, null, 2);
     await saveAiResponseToTempFile(aiResponse, messagesJson);
 
-    aiSpinner.succeed(
-      `AI流式响应生成完成 (${Math.floor((Date.now() - startTime) / 1000)}s)`
-    );
+    clearInterval(timer);
+    const totalElapsed = Math.floor((Date.now() - startTime) / 1000);
+    aiSpinner.succeed(`AI响应成功 (${totalElapsed}s, ${receivedChars} 字符)`);
   } catch (error) {
+    clearInterval(timer);
     aiSpinner.fail('AI响应获取失败');
-    console.error(CliStyle.error(`AI请求失败: ${(error as Error).message}`));
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    console.error(
+      CliStyle.error(`AI请求失败: ${(error as Error).message} (${elapsed}s)`)
+    );
     throw error;
   }
 

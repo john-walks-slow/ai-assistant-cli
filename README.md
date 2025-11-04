@@ -9,12 +9,14 @@
   </a>
 </p>
 
-MAI (Minimal AI Interface) 是一个最小化的命令行接口，允许你调用大语言模型编辑本地文件。
+MAI (Minimal AI Interface) 是一个最小化的命令行 AI 工具，允许你调用大语言模型编辑本地文件。
+
+与其他更复杂的 AI CLI 不同，MAI **不具备** 递归调用能力，它仅根据给定的提示词和上下文执行 **单步** 文件操作。
 
 ## 示例
 
 ```bash
-mai "翻译注释为中文" *.ts *.tsx
+mai "翻译注释为中文" *.{ts,tsx}
 ```
 
 ```
@@ -23,7 +25,6 @@ mai "翻译注释为中文" *.ts *.tsx
 
 --- 解析AI响应 ---
 解析到 5 个定界操作
-成功解析 5 个操作。
 正在保存本次AI对话历史...
 
 --- 提议的文件计划 ---
@@ -50,13 +51,13 @@ mai "翻译注释为中文" *.ts *.tsx
 
 ## 特性
 
-- 单步响应，极简 System Prompt
-- 默认无状态，完全手动指定所需上下文（支持引用文件、glob 模式、操作历史）
-- 基于分隔符的 Tool Calling 格式，避免 JSON 转义问题
-- 交互式审查文件编辑计划
+- 轻量可控的单步响应
+- 默认无状态，手动指定上下文（支持 glob 通配、引用片段、引用操作历史）
+- 极简 System Prompt，基于分隔符的 Tool Calling 格式，避免 JSON 转义问题
+- 支持交互式审查文件编辑计划
 - 内置轻量操作历史（回退、重做）
 - 兼容任意 openai-compatible 模型
-- 支持定义模板文件，简化重复任务
+- 支持定义提示词模板
 
 ## 安装与配置
 
@@ -95,45 +96,43 @@ MAI 的配置文件位于 `~/.mai/config.json5`。模板文件存储在 `~/.mai/
 {
   // 模型提供方设置
   providers: {
-    openrouter: {
+    openai: {
       // OpenAI v1 baseUrl
-      url: "https://openrouter.ai/api/v1",
+      url: 'https://api.openai.com/v1',
       // 定义可用的模型
-      models: [
-        "minimax/minimax-m2:free",
-        "qwen/qwen3-coder:free",
-        "moonshotai/kimi-k2:free",
-        "z-ai/glm-4.5-air:free"
-      ],
+      models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
       // 包含 API Key 的环境变量名
-      apiKeyEnv: "OPENROUTER_API_KEY",
+      apiKeyEnv: 'OPENAI_API_KEY'
       // 直接指定 API Key（覆盖 apiKeyEnv）
       // apiKey: "xxxxx"
     },
     gemini: {
-      url: "https://generativelanguage.googleapis.com/v1beta/openai/v1",
-      models: ["gemini-2.5-flash", "gemini-2.5-pro"],
-      apiKeyEnv: "GEMINI_API_KEY"
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1',
+      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+      apiKeyEnv: 'GEMINI_API_KEY'
     },
-    openai: {
-      url: "https://api.openai.com/v1",
-      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
-      apiKeyEnv: "OPENAI_API_KEY"
+    openrouter: {
+      url: 'https://openrouter.ai/api/v1',
+      models: [
+        'minimax/minimax-m2:free',
+        'qwen/qwen3-coder:free',
+        'moonshotai/kimi-k2:free',
+        'z-ai/glm-4.5-air:free'
+      ],
+      apiKeyEnv: 'OPENROUTER_API_KEY'
     },
     siliconflow: {
-      url: "https://api.siliconflow.cn/v1",
-      models: [
-        "MiniMaxAI/MiniMax-M2"
-      ],
-      apiKeyEnv: "SILICONFLOW_API_KEY",
+      url: 'https://api.siliconflow.cn/v1',
+      models: ['MiniMaxAI/MiniMax-M2'],
+      apiKeyEnv: 'SILICONFLOW_API_KEY'
     }
   },
   // 当前模型，格式为 provider/model。可以用 mai model select 变更。
-  model: "openrouter/minimax/minimax-m2:free",
+  model: 'openrouter/minimax/minimax-m2:free',
   // 模型温度
   temperature: 0.8,
   // 自动附带的历史上下文深度
-  historyDepth: 0,
+  historyDepth: 0
 }
 ```
 
@@ -160,11 +159,19 @@ mai <prompt> [files...] [options]
 - `-r, --ref-history <ids>`: 引用历史记录 ID、名称或索引列表（逗号分隔，如 `~1,id2`）作为上下文。`~1` 代表最近的一次历史
 - `-d, --history-depth <number>`: 历史深度，自动加载最近 N 条历史（默认从配置或 0）
 - `-c, --chat`: 忽略系统提示词
-- `-a, --auto-context`: （实验性，不建议尝试）启用自动上下文准备，使用 AI 收集相关文件上下文
 - `-m, --model <model>`: 指定使用的AI模型，覆盖默认配置
 - `-t, --temperature <number>`: 指定AI模型的temperature参数，控制输出的随机性 (0-2)
 
-### 子命令
+### 模型管理
+
+#### `mai model`
+
+管理和选择AI模型。
+
+- `list`: 列出所有可用的AI模型，并显示当前选择
+- `select`: 交互式选择AI模型
+
+### 历史记录
 
 #### `mai history`
 
@@ -176,20 +183,7 @@ mai <prompt> [files...] [options]
 - `delete <id|name|~n>`: 删除指定的历史记录
 - `clear`: 清除所有历史记录
 
-#### `mai model`
-
-管理和选择AI模型。
-
-- `list`: 列出所有可用的AI模型，并显示当前选中
-- `select`: 交互式选择AI模型
-
-#### `mai config`
-
-管理和查看配置项。(~/.mai/config.json5)
-
-- `list`: 列出当前配置
-- `set <key> <value>`: 直接设置配置项（如 `mai config set model x-ai/grok-code-fast-1`）
-- `reset`: 重置所有配置到默认值
+### 模板管理
 
 #### `mai template`
 
@@ -197,13 +191,31 @@ mai <prompt> [files...] [options]
 
 - `list`: 列出所有可用的提示词模板
 - `show <name>`: 显示指定提示词模板的详细内容
-- `create <name> [file]`: 创建一个新的提示词模板。如果提供了 `file`，则从该文件复制内容；否则将创建一个空模板。
+- `create <name>`: 创建新的提示词模板
 - `edit <name>`: 编辑指定的提示词模板
 - `delete <name>`: 删除指定的提示词模板
-- `apply <name> [files...] [options]`: 应用指定的提示词模板，并用提供的文件和输入填充占位符
+- `apply <name> [files...] [options]`: 应用指定的提示词模板，并用请求参数填充占位符
   - `-i, --input <value>`: 用于填充 `{{user_input}}` 占位符的值
   - `-s, --selection <value>`: 用于填充 `{{selection}}` 占位符的值
   - `--set <key=value>`: 设置自定义占位符值（可多次使用）
+
+模板文件支持以下占位符:
+- `{{fileName}}`: 当前操作的文件名 (例如: index.ts)
+- `{{selection}}`: 编辑器中当前选中的文本
+- `{{user_input}}`: 通过 --input 选项提供的用户输入
+- `{{<custom_key>}}`: 通过 --set <key=value> 提供的自定义值`
+
+### 设置管理
+
+#### `mai config`
+
+管理和查看配置项。(~/.mai/config.json5)
+
+- `list`: 列出当前配置
+- `set <key> <value>`: 直接设置配置项（如 `mai config set model gemini/gemini-2.5-flash`）
+- `reset`: 重置所有配置到默认值
+
+### 手动执行计划
 
 #### `mai exec-plan <planSource>`
 

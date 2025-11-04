@@ -290,15 +290,17 @@ program
  */
 program
   .command('template')
-  .description(`管理和应用存储在 ~/.mai/templates/ 目录中的AI提示词模板。
+  .description(
+    `管理和应用存储在 ~/.mai/templates/ 目录中的AI提示词模板。
   
 模板文件支持以下占位符:
 - {{fileName}}: 当前操作的文件名 (例如: index.ts)
 - {{selection}}: 编辑器中当前选中的文本
 - {{user_input}}: 通过 --input 选项提供的用户输入
-- {{<custom_key>}}: 通过 --set <key=value> 提供的自定义值`)
+- {{<custom_key>}}: 通过 --set <key=value> 提供的自定义值`
+  )
   .addCommand(
-   new Command('list')
+    new Command('list')
       .description('列出所有可用的提示词模板。')
       .action(async () => {
         await listTemplates();
@@ -361,7 +363,7 @@ program
           return previous;
         }
       )
-      .description('应用指定的提示词模板，并用提供的文件和输入填充占位符。')
+      .description('应用指定的提示词模板，并用请求参数填充占位符。')
       .action(
         async (
           name: string,
@@ -388,7 +390,7 @@ program
   .description('管理和选择AI模型。')
   .addCommand(
     new Command('list')
-      .description('列出所有可用的AI模型，并显示当前选中。')
+      .description('列出所有可用的AI模型，并显示当前选择。')
       .action(async () => {
         await listAvailableModels();
       })
@@ -413,7 +415,7 @@ program
   .addCommand(
     new Command('set')
       .description(
-        '直接设置配置项。使用: mai config set <key> <value> (如 mai config set model x-ai/grok-code-fast-1)'
+        '直接设置配置项。使用: mai config set <key> <value> (如 mai config set model google/gemini-2.5-flash)'
       )
       .argument('<key>', '配置键 (如 model, systemPrompt, historyDepth)')
       .argument('<value>', '配置值')
