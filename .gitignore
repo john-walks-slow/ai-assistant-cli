@@ -8,3 +8,4 @@ dist
 /package-lock.json
 .aider*
 pnpm-lock.yaml
+*.bak
