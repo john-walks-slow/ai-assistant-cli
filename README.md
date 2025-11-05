@@ -1,4 +1,4 @@
-# MAI - 轻量文件编辑 AI CLI
+# MAI - 轻量文件操作 AI CLI
 
 <p>
   <a href="https://www.npmjs.com/package/@johnnren/mai-cli">
@@ -9,9 +9,9 @@
   </a>
 </p>
 
-MAI (Minimal AI Interface) 是一个最小化的命令行 AI 工具，允许你调用大语言模型编辑本地文件。
+MAI (Minimal AI Interface) 是一个最小化的命令行 AI 工具，允许你调用大语言模型读写本地文件。
 
-与其他更复杂的 AI CLI 不同，MAI **不具备** 递归调用能力，它仅根据给定的提示词和上下文执行 **单步** 文件操作。
+与其他更复杂的 AI CLI 不同，MAI **不具备** 自我调用能力，它仅根据给定的提示词和上下文执行 **单步** 文件操作。
 
 ## 示例
 
