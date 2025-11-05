@@ -1,6 +1,5 @@
 # MAI - 轻量、可控的文件编辑 AI CLI
-
-<p align="center">
+<p>
   <a href="https://www.npmjs.com/package/@johnnren/mai-cli">
     <img src="https://img.shields.io/npm/v/@johnnren/mai-cli.svg" alt="NPM Version">
   </a>
@@ -54,7 +53,7 @@ mai "翻译注释为中文" *.ts *.tsx
 ## 特性
 
 - 单步响应，无复杂 Agentic 流程
-- 无状态，完全手动指定所需上下文（支持引用文件、glob模式、操作历史）
+- 无状态，完全手动指定所需上下文（支持引用文件、glob 模式、操作历史）
 - 支持交互式审查文件编辑计划
 - 内置轻量操作历史（支持回退、重做）
 - 兼容任意 openai-compatible 模型
