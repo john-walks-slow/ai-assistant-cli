@@ -183,6 +183,13 @@ mai [prompt] [files...] [options]
 #### `mai exec-plan <planSource>`
 从文件或直接字符串执行一个操作计划。
 
+## 开发
+
+```bash
+npm link
+npm run dev
+```
+
 ## License
 
 MIT
