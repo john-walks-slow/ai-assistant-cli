@@ -8,7 +8,7 @@
 - 交互式审查提出的操作
 - 完全手动指定上下文（支持引用文件、操作历史）
 - 轻量操作历史（支持回退、重做），不依赖 git
-- 支持多模型
+- 支持任意 openai-compatible 模型
 - 支持自定义模板
 
 **适合的场景**
@@ -28,13 +28,13 @@ git clone <repo-url>
 cd mai
 
 # 安装依赖
-pnpm install
+npm install
 
 # 构建
-pnpm run build
+npm run build
 
 # 全局安装后可直接使用
-pnpm link   # 或 npm link
+npm link
 ```
 
 ## 使用
@@ -103,10 +103,8 @@ mai [prompt] [files...] [options]
 
 ```bash
 # 监听源码并实时编译
-pnpm run dev
+npm run dev
 ```
-
-项目使用 TypeScript，代码位于 `src/` 目录，主要入口 `src/index.ts`。
 
 ## 许可证
 

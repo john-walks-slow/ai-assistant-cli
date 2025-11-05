@@ -28,22 +28,13 @@ export interface MaiConfig {
     maxFiles?: number;
   };
   providers?: Partial<ProvidersConfig>; // 支持自定义providers
-  // Add other config fields as needed
 }
-
-/**
- * 环境变量的默认值及其回退。
- */
-export const ENV_VARS = {
-  API_ENDPOINT: 'https://openrouter.ai/api/v1/chat/completions',
-  API_KEY: '', // Example default, encourage using env
-  MODEL: '', // Will fallback to DEFAULT_MODEL
-};
 
 export interface ProviderConfig {
   url: string;
   models?: string[];
   apiKeyEnv: string;
+  apiKey?: string; // 直接提供 API Key，优先级最高
 }
 
 export type ProvidersConfig = Record<string, ProviderConfig>;
@@ -58,15 +49,8 @@ export const DEFAULT_PROVIDERS: ProvidersConfig = {
     url: 'https://openrouter.ai/api/v1/chat/completions',
     models: [
       'x-ai/grok-code-fast-1',
-      'qwen/qwen3-coder',
       'qwen/qwen3-coder:free',
       'moonshotai/kimi-k2:free',
-      'openrouter/sonoma-sky-alpha',
-      'openrouter/sonoma-dusk-alpha',
-      'openai/gpt-4.1-mini',
-      'google/gemini-2.0-flash-exp:free',
-      'google/gemini-2.5-flash',
-      'google/gemini-2.5-pro',
       'z-ai/glm-4.5-air:free',
     ],
     apiKeyEnv: 'OPENROUTER_API_KEY',
@@ -76,19 +60,9 @@ export const DEFAULT_PROVIDERS: ProvidersConfig = {
     models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
     apiKeyEnv: 'GEMINI_API_KEY',
   },
-  gemini_balance: {
-    url: 'https://gemini-balance.johnr.workers.dev/v1/chat/completions',
-    models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    apiKeyEnv: 'GEMINI_BALANCE_API_KEY',
-  },
-  huawei: {
-    url: 'http://api.openai.rnd.huawei.com/v1/chat/completions',
-    models: ['gpt-oss-120b', 'gpt-oss-20b', 'glm-4.5-air'],
-    apiKeyEnv: 'HUAWEI_CHAT_API_KEY',
-  },
 } as const;
 
-export const DEFAULT_MODEL: string = 'openrouter/x-ai/grok-code-fast-1';
+export const DEFAULT_MODEL: string = 'openai/gpt-4o';
 
 /**
  * 配置目录和文件路径。
@@ -117,10 +91,19 @@ export function getConfigFile(): string {
  * @param model - 模型字符串。
  * @returns 解析结果或 null。
  */
-export function parseModel(
-  model: string,
-): { provider: string; modelName: string } | null {
-  const knownProviders: string[] = Object.keys(DEFAULT_PROVIDERS) as string[];
+export async function parseModel(
+  model: string
+): Promise<{ provider: string; modelName: string } | null> {
+  // Load user config to obtain any custom providers
+  const config = await loadConfig();
+  const customProviders = config.providers || {};
+
+  // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
+  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
+    ? (customProviders as ProvidersConfig)
+    : DEFAULT_PROVIDERS
+
+  const knownProviders: string[] = Object.keys(mergedProviders) as string[];
   for (const provider of knownProviders) {
     if (model.startsWith(`${provider}/`)) {
       const modelName = model.slice(provider.length + 1);
@@ -153,7 +136,7 @@ export async function loadConfig(): Promise<MaiConfig> {
       return {}; // 如果文件不存在，则为空配置
     }
     console.warn(
-      `Warning: Unable to load config '${configPath}'. Falling back to defaults.`,
+      `Warning: Unable to load config '${configPath}'. Falling back to defaults.`
     );
     return {};
   }
@@ -176,15 +159,15 @@ export async function saveConfig(config: MaiConfig): Promise<void> {
   } catch (error) {
     console.error(
       CliStyle.error(
-        `保存配置失败到 '${configPath}': ${(error as Error).message}`,
-      ),
+        `保存配置失败到 '${configPath}': ${(error as Error).message}`
+      )
     );
     // 尝试诊断常见问题
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       console.error(CliStyle.warning('目录不存在，请检查权限。'));
     } else if ((error as NodeJS.ErrnoException).code === 'EACCES') {
       console.error(
-        CliStyle.warning('权限不足，无法写入 ~/.mai 目录。请检查文件权限。'),
+        CliStyle.warning('权限不足，无法写入 ~/.mai 目录。请检查文件权限。')
       );
     }
     throw error;
@@ -197,19 +180,25 @@ export async function saveConfig(config: MaiConfig): Promise<void> {
  */
 export async function getApiEndpoint(model?: string): Promise<string> {
   const currentModel = model || (await getCurrentModel());
-  const parsed = parseModel(currentModel);
+  const parsed = await parseModel(currentModel);
   if (!parsed) {
     throw new Error(
-      `Invalid model format: ${currentModel}. Expected 'provider/modelname'.`,
+      `Invalid model format: ${currentModel}. Expected 'provider/modelname'.`
     );
   }
   const config = await loadConfig();
-  const providers = config.providers || {};
-  const def = DEFAULT_PROVIDERS[parsed.provider];
+  const customProviders = config.providers || {};
+
+  // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
+  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
+    ? (customProviders as ProvidersConfig)
+    : DEFAULT_PROVIDERS
+
+  const def = mergedProviders[parsed.provider];
   if (!def) {
     throw new Error(`Unknown provider: ${parsed.provider}`);
   }
-  const pconfig = providers[parsed.provider] || def;
+  const pconfig = customProviders[parsed.provider] || def;
   return pconfig.url;
 }
 
@@ -220,26 +209,35 @@ export async function getApiEndpoint(model?: string): Promise<string> {
  */
 export async function getApiKey(model?: string): Promise<string> {
   const currentModel = model || (await getCurrentModel());
-  const parsed = parseModel(currentModel);
+  const parsed = await parseModel(currentModel);
   if (!parsed) {
     throw new Error(
-      `Invalid model format: ${currentModel}. Expected 'provider/modelname'.`,
+      `Invalid model format: ${currentModel}. Expected 'provider/modelname'.`
     );
   }
   const config = await loadConfig();
-  const providers = config.providers || {};
-  const def = DEFAULT_PROVIDERS[parsed.provider];
+  const customProviders = config.providers || {};
+
+  // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
+  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
+    ? (customProviders as ProvidersConfig)
+    : DEFAULT_PROVIDERS
+
+  const def = mergedProviders[parsed.provider];
   if (!def) {
     throw new Error(`Unknown provider: ${parsed.provider}`);
   }
-  const pconfig = providers[parsed.provider] || def;
+  const pconfig = customProviders[parsed.provider] || def;
+
+  // 优先使用配置中直接提供的 apiKey（最高优先级）
+  if ((pconfig as any).apiKey) {
+    return (pconfig as any).apiKey;
+  }
+
   const key = process.env[pconfig.apiKeyEnv];
   if (!key) {
-    if (parsed.provider === 'openrouter') {
-      return ENV_VARS.API_KEY; // 回退到默认 openrouter key
-    }
     throw new Error(
-      `API key not found for provider '${parsed.provider}'. Set ${pconfig.apiKeyEnv}.`,
+      `API key not found for provider '${parsed.provider}'. Set ${pconfig.apiKeyEnv}.`
     );
   }
 
@@ -253,6 +251,19 @@ export async function getApiKey(model?: string): Promise<string> {
     return keys[randomIndex];
   }
   return key;
+}
+/**
+ * 判断指定模型是否拥有可用的 API Key。
+ * @param model - 模型标识，例如 'openai/gpt-4o'
+ * @returns true 表示存在可用的密钥，false 表示缺失
+ */
+export async function hasApiKey(model: string): Promise<boolean> {
+  try {
+    await getApiKey(model);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -290,7 +301,7 @@ export async function getCurrentModel(): Promise<string> {
  */
 export async function getCurrentProvider(): Promise<string | null> {
   const currentModel = await getCurrentModel();
-  const parsed = parseModel(currentModel);
+  const parsed = await parseModel(currentModel);
   return parsed ? parsed.provider : null;
 }
 
@@ -300,7 +311,7 @@ export async function getCurrentProvider(): Promise<string | null> {
  */
 export async function getCurrentModelName(): Promise<string | null> {
   const currentModel = await getCurrentModel();
-  const parsed = parseModel(currentModel);
+  const parsed = await parseModel(currentModel);
   return parsed ? parsed.modelName : null;
 }
 
@@ -314,7 +325,7 @@ export async function setModel(model: string): Promise<void> {
     throw new Error(
       `Invalid model: ${model}. Must be one of: ${available
         .slice(0, 5)
-        .join(', ')}...`,
+        .join(', ')}...`
     );
   }
   const config = await loadConfig();
@@ -427,10 +438,17 @@ export interface ConfigOption {
  */
 export async function getAvailableModels(): Promise<string[]> {
   const config = await loadConfig();
-  const providers = config.providers || {};
+  const customProviders = config.providers || {};
+
+  // 如果用户在配置中提供了 providers，则仅使用用户提供的；否则使用默认提供者
+  const mergedProviders = customProviders && Object.keys(customProviders).length > 0
+    ? (customProviders as ProvidersConfig)
+    : DEFAULT_PROVIDERS
+
   const allModels: string[] = [];
-  for (const [prov, def] of Object.entries(DEFAULT_PROVIDERS)) {
-    const pconfig = providers[prov as keyof typeof DEFAULT_PROVIDERS] || def;
+  for (const [prov, def] of Object.entries(mergedProviders)) {
+    // 如果用户自定义了该 provider，则使用其完整配置；否则使用默认
+    const pconfig = (customProviders as any)[prov] || def;
     const models = pconfig.models || def.models || [];
     for (const m of models) {
       allModels.push(`${prov}/${m}`);
@@ -438,7 +456,6 @@ export async function getAvailableModels(): Promise<string[]> {
   }
   return allModels;
 }
-
 export async function getAutoContextConfig(): Promise<{
   maxRounds: number;
   maxFiles: number;

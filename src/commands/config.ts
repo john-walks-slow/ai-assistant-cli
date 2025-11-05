@@ -30,7 +30,7 @@ export async function listConfig(): Promise<void> {
     const historyDepth = await getHistoryDepth();
     const temperature = await getTemperature();
 
-    const parsedModel = parseModel(currentModel);
+    const parsedModel = await parseModel(currentModel);
     const modelDisplay = parsedModel
       ? `${parsedModel.provider} / ${parsedModel.modelName}`
       : currentModel;
