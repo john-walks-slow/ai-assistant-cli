@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Argument, Command } from 'commander';
+import { Argument, Command, Option } from 'commander';
 import * as readline from 'readline';
 import * as fs from 'fs/promises';
 
@@ -32,24 +32,26 @@ program
   .name('mai')
   .version(packageJson.version)
   .description('MAI - Minimal File Operation AI')
-  .argument('[prompt]', '提示词。')
+  .argument('<prompt>', '提示词。')
   .argument(
     '[files...]',
     '作为上下文的文件。支持glob如 "src/**"。支持指定行数范围如 "src/file.ts:10-20"。'
   )
   .option('-y, --auto-apply', '自动应用计划，无需用户确认（假设计划正确）。')
   .option(
-    '-r, --history <ids>',
-    '引用历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。'
+    '-r, --ref-history <ids>',
+    '引用历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。~1 代表最近的一次历史。'
   )
   .option(
     '-d, --history-depth <number>',
     '历史深度，自动加载最近 N 条历史（默认从配置或 0）。'
   )
-  .option('-c, --chat', '忽略系统提示词，使用空提示。')
-  .option(
-    '-a, --auto-context',
-    '启用自动上下文准备，使用 AI 收集相关文件上下文。'
+  .option('-c, --chat', '忽略系统提示词。')
+  .addOption(
+    new Option(
+      '-a, --auto-context',
+      '（实验性，不建议尝试）启用自动上下文准备，使用 AI 收集相关文件上下文。'
+    ).hideHelp()
   )
   .option('-m, --model <model>', '指定使用的AI模型，覆盖默认配置。')
   .option(
@@ -58,7 +60,7 @@ program
   )
   .action(
     async (
-      promptArg: string | undefined,
+      promptArg: string,
       files: string[],
       options: {
         chat?: boolean;
@@ -73,38 +75,17 @@ program
       let actualPrompt: string;
       let systemToUse: string | undefined = undefined;
 
-      // 如果未提供指令，则提示用户输入
-      if (!promptArg || promptArg.trim() === '') {
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout
-        });
-
-        console.log(CliStyle.process('未提供指令。请在下方输入您的请求：'));
-        actualPrompt = await new Promise<string>((resolve) => {
-          rl.question(CliStyle.prompt('> '), (answer) => {
-            rl.close();
-            resolve(answer.trim());
-          });
-        });
-
-        if (!actualPrompt) {
-          console.log(CliStyle.warning('未输入指令。退出。'));
-          process.exit(0);
-        }
+      // 检查是否为 'ask:' 或 'ask：' 命令
+      const trimmedPrompt = promptArg.trim();
+      if (
+        trimmedPrompt.startsWith('ask:') ||
+        trimmedPrompt.startsWith('ask：')
+      ) {
+        const prefixLength = trimmedPrompt.startsWith('ask:') ? 4 : 5;
+        actualPrompt = trimmedPrompt.substring(prefixLength).trim();
+        systemToUse = '';
       } else {
-        // 检查是否为 'ask:' 或 'ask：' 命令
-        const trimmedPrompt = promptArg.trim();
-        if (
-          trimmedPrompt.startsWith('ask:') ||
-          trimmedPrompt.startsWith('ask：')
-        ) {
-          const prefixLength = trimmedPrompt.startsWith('ask:') ? 4 : 5;
-          actualPrompt = trimmedPrompt.substring(prefixLength).trim();
-          systemToUse = '';
-        } else {
-          actualPrompt = promptArg;
-        }
+        actualPrompt = promptArg;
       }
 
       // 处理 -c 选项
@@ -278,7 +259,10 @@ program
     new Command('undo')
       .description('撤销指定的历史记录所做的更改，而不删除该历史记录。')
       .addArgument(
-        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）')
+        new Argument(
+          '[id|name|~n]',
+          '历史记录的ID、名称或索引（如 ~1）'
+        ).default('~1', '最近一次历史')
       )
       .action(async (idOrName: string) => {
         await undoHistory(idOrName);
@@ -288,7 +272,10 @@ program
     new Command('redo')
       .description('重新应用指定的历史记录所做的更改，而不删除历史记录。')
       .addArgument(
-        new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）')
+        new Argument(
+          '[id|name|~n]',
+          '历史记录的ID、名称或索引（如 ~1）'
+        ).default('~1', '最近一次历史')
       )
       .action(async (idOrName: string) => {
         await redoHistory(idOrName);
@@ -333,7 +320,10 @@ program
   .addCommand(
     new Command('apply')
       .argument('<name>', '要应用的模板名称。')
-      .argument('[files...]', '可选的文件列表作为上下文。')
+      .argument(
+        '[files...]',
+        '作为上下文的文件。支持glob如 "src/**"。支持指定行数范围如 "src/file.ts:10-20"。'
+      )
       .option('-i, --input <value>', '用于填充 {{user_input}} 占位符的值。')
       .option('-s, --selection <value>', '用于填充 {{selection}} 占位符的值。')
       .description('应用指定的提示模板，并用提供的文件和输入填充占位符。')
