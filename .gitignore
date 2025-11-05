@@ -1,0 +1,7 @@
+
+node_modules
+dist
+/plan
+/plan.md
+/.mai-history
+/.mai-history.json
