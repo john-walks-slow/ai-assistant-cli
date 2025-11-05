@@ -3,7 +3,7 @@ import * as path from 'path';
 import inquirer from 'inquirer';
 
 import { CliStyle } from '../utils/cli-style';
-import { findGitRoot } from '../utils/git-helper';
+import { findGitRoot } from '../utils/file-utils';
 import { executePlan } from '../core/plan-executor';
 import { reviewAndExecutePlan } from '../core/plan-reviewer';
 import { AiOperation, FileOperation } from '../core/operation-schema';
@@ -162,16 +162,26 @@ export async function listHistory(
       entry.applied === undefined
         ? ''
         : entry.applied
-          ? ' (已应用)'
-          : ' (未应用)';
+        ? ' (已应用)'
+        : ' (未应用)';
     console.log(
-      `${CliStyle.info(`${displayIndex + 1}. ${idOrName} (~${originalDisplayIndex})${appliedStatus}`)} - ${entry.description} (${new Date(entry.timestamp).toLocaleString()})`,
+      `${CliStyle.info(
+        `${
+          displayIndex + 1
+        }. ${idOrName} (~${originalDisplayIndex})${appliedStatus}`,
+      )} - ${entry.description} (${new Date(
+        entry.timestamp,
+      ).toLocaleString()})`,
     );
     console.log(
-      `   提示: ${CliStyle.muted(entry.prompt.substring(0, 50) + (entry.prompt.length > 50 ? '...' : ''))}`,
+      `   提示: ${CliStyle.muted(
+        entry.prompt.substring(0, 50) + (entry.prompt.length > 50 ? '...' : ''),
+      )}`,
     );
     console.log(
-      `   操作: ${fileOpCount} 文件操作 ${responseCount > 0 ? `+ ${responseCount} 响应` : ''}${fileOpCount === 0 ? ' (纯AI响应)' : ''}`,
+      `   操作: ${fileOpCount} 文件操作 ${
+        responseCount > 0 ? `+ ${responseCount} 响应` : ''
+      }${fileOpCount === 0 ? ' (纯AI响应)' : ''}`,
     );
     console.log();
   });
@@ -327,7 +337,9 @@ export async function redoHistory(idOrName: string): Promise<void> {
   console.log(CliStyle.process(`正在重新应用: ${displayId}`));
   console.log(
     CliStyle.muted(
-      `涉及 ${entry.operations.filter((op) => op.type !== 'response').length} 个文件操作`,
+      `涉及 ${
+        entry.operations.filter((op) => op.type !== 'response').length
+      } 个文件操作`,
     ),
   );
   await reviewAndExecutePlan(
@@ -426,7 +438,9 @@ export async function deleteHistory(idOrName: string): Promise<void> {
   await saveHistory(filteredHistory);
   console.log(
     CliStyle.success(
-      `已删除历史记录: ${displayId} (${initialLength - filteredHistory.length} 个条目）`,
+      `已删除历史记录: ${displayId} (${
+        initialLength - filteredHistory.length
+      } 个条目）`,
     ),
   );
 }
@@ -467,7 +481,11 @@ export async function clearHistory(): Promise<void> {
 export function formatHistoryContext(entry: HistoryEntry): string {
   const operationsJson = JSON.stringify(entry.operations, null, 2);
   const aiResponse = entry.aiResponse || 'N/A';
-  let historyContent = `${startDelimiter('HISTORY')}\nid: ${entry.id}\ntimestamp: ${entry.timestamp}\nprompt: ${entry.prompt}\ndescription: ${entry.description || 'N/A'}`;
+  let historyContent = `${startDelimiter('HISTORY')}\nid: ${
+    entry.id
+  }\ntimestamp: ${entry.timestamp}\nprompt: ${entry.prompt}\ndescription: ${
+    entry.description || 'N/A'
+  }`;
   if (entry.files && entry.files.length > 0) {
     historyContent += `\nfiles: ${JSON.stringify(entry.files)}`;
   }

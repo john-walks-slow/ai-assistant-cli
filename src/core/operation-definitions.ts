@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { findGitRoot } from '../utils/git-helper';
+import { findGitRoot } from '../utils/file-utils';
 import { isFileIgnored, computeFindMatchCount } from '../utils/file-utils';
 import {
   AiOperation,
@@ -225,7 +225,9 @@ export class OperationDescriptions {
       }
       commentBlock += ' */\n';
     } else {
-      commentBlock += `/** ${optional ? '（可选）' : ''}${description ?? ''} */\n`;
+      commentBlock += `/** ${optional ? '（可选）' : ''}${
+        description ?? ''
+      } */\n`;
     }
 
     return commentBlock;

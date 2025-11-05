@@ -257,7 +257,7 @@ export async function processAiResponse(
 
   try {
     console.log(CliStyle.process('\n--- 解析AI响应 ---'));
-    const operations = parseAiResponse(aiResponse);
+    const operations = await parseAiResponse(aiResponse);
 
     if (operations.length === 0) {
       // 保存仅响应历史

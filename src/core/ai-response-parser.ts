@@ -8,6 +8,7 @@ import { CliStyle } from '../utils/cli-style';
 import * as JSON5 from 'json5'; // Use JSON5 for parsing flexibly
 import { AiOperation } from './operation-schema';
 import { OperationValidator } from './operation-validator';
+import { toAbsolutePath } from '../utils/file-utils';
 
 /**
  * 类型别名，用于清晰表示局部 AI 操作。
@@ -21,10 +22,10 @@ type PartialAiOperation = Partial<AiOperation> & { [key: string]: any };
  * @returns 解析的 PartialAiOperation 对象。
  * @throws {Error} 如果块格式错误。
  */
-function parseSingleOperationBlock(
+async function parseSingleOperationBlock(
   blockContent: string,
   looseMode: boolean = false,
-): PartialAiOperation {
+): Promise<PartialAiOperation> {
   const operation: PartialAiOperation = {};
   const lines = blockContent.split('\n');
 
@@ -93,6 +94,13 @@ function parseSingleOperationBlock(
             operation[key] = numValue;
             continue;
           }
+        } else if (
+          key === 'filePath' ||
+          key === 'oldPath' ||
+          key === 'newPath'
+        ) {
+          operation[key] = await toAbsolutePath(value);
+          continue;
         }
 
         if (key && value) {
@@ -189,11 +197,11 @@ function findOperationBlocks(response: string): string[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-function parseDelimitedOperations(
+async function parseDelimitedOperations(
   response: string,
   shouldValidate = true,
   looseMode: boolean = false,
-): AiOperation[] {
+): Promise<AiOperation[]> {
   const blocks = findOperationBlocks(response);
   if (!blocks.length) {
     return [];
@@ -207,14 +215,16 @@ function parseDelimitedOperations(
     if (!block.trim()) continue;
 
     try {
-      const operation = parseSingleOperationBlock(block, looseMode);
+      const operation = await parseSingleOperationBlock(block, looseMode);
       if (shouldValidate) {
         // 验证操作
         const validation = OperationValidator.validateOperation(operation);
         if (!validation.isValid) {
           console.log(
             CliStyle.warning(
-              `操作 ${i + 1} 验证失败: ${validation.errors?.join(', ') || '未知错误'}`,
+              `操作 ${i + 1} 验证失败: ${
+                validation.errors?.join(', ') || '未知错误'
+              }`,
             ),
           );
           errors++;
@@ -248,7 +258,7 @@ function parseDelimitedOperations(
  * @returns 操作数组或空数组。
  * @throws {Error} 如果 JSON 解析错误，但并非由于格式不匹配。
  */
-function tryParseAsJson(response: string): AiOperation[] {
+async function tryParseAsJson(response: string): Promise<AiOperation[]> {
   const trimmed = response.trim();
   // 检查是否看起来像 JSON 数组或对象
   if (
@@ -270,7 +280,9 @@ function tryParseAsJson(response: string): AiOperation[] {
     const validation = OperationValidator.validateOperations(operations);
     if (!validation.isValid) {
       throw new Error(
-        `JSON 验证失败: ${validation.errors?.slice(0, 3).join('; ') || '未知错误'}`,
+        `JSON 验证失败: ${
+          validation.errors?.slice(0, 3).join('; ') || '未知错误'
+        }`,
       );
     }
 
@@ -284,7 +296,9 @@ function tryParseAsJson(response: string): AiOperation[] {
     }
     // 其他错误如验证失败则向上抛出
     throw new Error(
-      `JSON 解析/验证错误: ${error instanceof Error ? error.message : String(error)}`,
+      `JSON 解析/验证错误: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 }
@@ -295,11 +309,11 @@ function tryParseAsJson(response: string): AiOperation[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-export function parseAiResponse(
+export async function parseAiResponse(
   response: string,
   shouldValidate = true,
   looseMode: boolean = true,
-): AiOperation[] {
+): Promise<AiOperation[]> {
   const trimmed = response.trim();
   if (!trimmed) {
     console.log(CliStyle.warning('AI响应为空'));
@@ -308,7 +322,7 @@ export function parseAiResponse(
 
   // 尝试 JSON 解析
   try {
-    const jsonOps = tryParseAsJson(trimmed);
+    const jsonOps = await tryParseAsJson(trimmed);
     if (jsonOps.length > 0) {
       return jsonOps;
     }
@@ -316,13 +330,15 @@ export function parseAiResponse(
     // tryParseAsJson 可能会抛出验证失败的错误，这里捕获并打印
     console.warn(
       CliStyle.warning(
-        `尝试 JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`,
+        `尝试 JSON 解析失败: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       ),
     );
   }
 
   // 回退到定界格式
-  const delimitedOps = parseDelimitedOperations(
+  const delimitedOps = await parseDelimitedOperations(
     trimmed,
     shouldValidate,
     looseMode,
