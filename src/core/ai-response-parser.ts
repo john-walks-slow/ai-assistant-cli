@@ -1,10 +1,10 @@
 import { AiOperation } from '../types/operations';
 import {
-  CONTENT_END_DELIMITER,
-  CONTENT_START_DELIMITER,
-  OPERATION_END_DELIMITER,
-  OPERATION_START_DELIMITER,
+  endDelimiter,
+  endDelimiterRegex,
   OperationValidator,
+  startDelimiter,
+  startDelimiterRegex,
 } from './operation-definitions';
 import { CliStyle } from '../utils/cli-style';
 import * as JSON5 from 'json5'; // Use JSON5 for parsing flexibly
@@ -12,11 +12,11 @@ import * as JSON5 from 'json5'; // Use JSON5 for parsing flexibly
 /**
  * 类型别名，用于清晰表示局部 AI 操作。
  */
-type PartialAiOperation = Partial<AiOperation> & { [key: string]: any };
+type PartialAiOperation = Partial<AiOperation> & { [key: string]: any; };
 
 /**
  * 解析单个定界操作块的内容。
- * 职责：提取参数和内容，确保定界符单独成行。
+ * 职责：提取参数和内容。支持动态的 XXX_START/XXX_END 内容块，并确保定界符单独成行。
  * @param blockContent - OPERATION_START 和 OPERATION_END 之间的内容。
  * @returns 解析的 PartialAiOperation 对象。
  * @throws {Error} 如果块格式错误。
@@ -24,47 +24,56 @@ type PartialAiOperation = Partial<AiOperation> & { [key: string]: any };
 function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
   const operation: PartialAiOperation = {};
   const lines = blockContent.split('\n');
-  let inContentBlock = false;
-  const contentLines: string[] = [];
+
+
+
+  let currentContentKey: string | null = null; // 用于跟踪当前正在捕获的内容块的键
+  let contentLines: string[] = []; // 用于存储当前内容块的行
 
   // 处理每一行
   for (const line of lines) {
     const trimmedLine = line.trim();
 
-    // 检查内容开始定界符（必须单独成行）
-    if (trimmedLine === CONTENT_START_DELIMITER) {
-      if (inContentBlock) {
-        throw new Error('嵌套的内容开始定界符');
+    // 检查是否在内容块中
+    if (currentContentKey) {
+      const endMatch = endDelimiterRegex.exec(trimmedLine);
+      // 检查是否为当前内容块的结束定界符
+      if (endMatch && endMatch[1] === currentContentKey) {
+        // 将收集到的行连接成字符串并赋值给对应的键的小写形式
+        // 例如, LOG_END -> operation.log
+        operation[currentContentKey] = contentLines.join('\n');
+
+        // 重置状态，准备解析下一个参数或内容块
+        contentLines = [];
+        currentContentKey = null;
+        continue;
+      } else {
+        // 如果不是结束定界符，则将该行视为内容的一部分
+        contentLines.push(line);
+        continue;
       }
-      inContentBlock = true;
-      continue;
     }
 
-    // 检查内容结束定界符（必须单独成行）
-    if (trimmedLine === CONTENT_END_DELIMITER) {
-      if (!inContentBlock) {
-        throw new Error('孤立的内容结束定界符');
+    // 如果不在任何内容块中，检查是否为新的开始定界符
+    const startMatch = startDelimiterRegex.exec(trimmedLine);
+    if (startMatch) {
+      // 检查是否有嵌套的开始定界符，这是不允许的
+      if (currentContentKey) {
+        throw new Error(`在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`);
       }
-      inContentBlock = false;
-      operation.content = contentLines.join('\n'); // 避免在此处trim，内容区域需保留原始格式
-      contentLines.length = 0;
+      // 设置当前内容块的键，例如, "LOG"
+      currentContentKey = startMatch[1];
       continue;
     }
 
-    // 在内容块内，保留原始行
-    if (inContentBlock) {
-      contentLines.push(line);
-      continue;
-    }
-
-    // 参数行解析（非空行）
+    // 如果既不是内容行，也不是定界符行，则解析为参数行
     if (trimmedLine) {
       const separatorIndex = trimmedLine.indexOf(':');
       if (separatorIndex > 0) {
         const key = trimmedLine.substring(0, separatorIndex).trim();
         let value = trimmedLine.substring(separatorIndex + 1).trim();
 
-        // 尝试解析为数字（startLine/endLine）
+        // 尝试解析为数字 (startLine/endLine)
         if (key === 'startLine' || key === 'endLine') {
           const numValue = Number(value);
           if (!isNaN(numValue)) {
@@ -72,7 +81,7 @@ function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
             continue;
           }
         }
-        
+
         if (key && value) {
           operation[key] = value;
         }
@@ -82,14 +91,14 @@ function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
     }
   }
 
-  // 确保有 type
+  // 确保有 type 属性
   if (!operation.type) {
     throw new Error(`操作块缺少'type'属性: ${JSON.stringify(operation)}`);
   }
 
-  // 确保内容块正确关闭
-  if (inContentBlock) {
-    throw new Error('未关闭的内容块');
+  // 确保所有内容块都已正确关闭
+  if (currentContentKey) {
+    throw new Error(`未关闭的内容块: '${currentContentKey} START'`);
   }
 
   return operation;
@@ -111,7 +120,7 @@ function findOperationBlocks(response: string): string[] {
     const trimmedLine = line.trim();
 
     // 操作开始（必须单独成行）
-    if (trimmedLine === OPERATION_START_DELIMITER) {
+    if (trimmedLine === startDelimiter()) {
       if (inOperationBlock) {
         console.log(CliStyle.warning('发现嵌套操作开始，忽略当前块'));
         currentBlock = [];
@@ -122,7 +131,7 @@ function findOperationBlocks(response: string): string[] {
     }
 
     // 操作结束（必须单独成行）
-    if (trimmedLine === OPERATION_END_DELIMITER) {
+    if (trimmedLine === endDelimiter()) {
       if (!inOperationBlock) {
         console.log(CliStyle.warning('发现孤立操作结束，忽略'));
         continue;
@@ -156,7 +165,7 @@ function findOperationBlocks(response: string): string[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-function parseDelimitedOperations(response: string): AiOperation[] {
+function parseDelimitedOperations(response: string, shouldValidate = true): AiOperation[] {
   const blocks = findOperationBlocks(response);
   if (!blocks.length) {
     return [];
@@ -171,22 +180,23 @@ function parseDelimitedOperations(response: string): AiOperation[] {
 
     try {
       const operation = parseSingleOperationBlock(block);
-      
-      // 验证操作
-      const validation = OperationValidator.validateOperation(operation);
-      if (!validation.isValid) {
-        console.log(CliStyle.warning(
-          `操作 ${i + 1} 验证失败: ${validation.errors?.join(', ') || '未知错误'}`,
-        ));
-        errors++;
-        continue;
+      if (shouldValidate) {
+        // 验证操作
+        const validation = OperationValidator.validateOperation(operation);
+        if (!validation.isValid) {
+          console.log(CliStyle.warning(
+            `操作 ${i + 1} 验证失败: ${validation.errors?.join(', ') || '未知错误'}`,
+          ));
+          errors++;
+          continue;
+        }
       }
 
       operations.push(operation as AiOperation);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       console.log(CliStyle.warning(`解析操作 ${i + 1} 失败: ${msg}`));
-       errors++;
+      errors++;
     }
   }
 
@@ -249,7 +259,7 @@ function tryParseAsJson(response: string): AiOperation[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-export function parseAiResponse(response: string): AiOperation[] {
+export function parseAiResponse(response: string, shouldValidate = true): AiOperation[] {
   const trimmed = response.trim();
   if (!trimmed) {
     console.log(CliStyle.warning('AI响应为空'));
@@ -266,15 +276,15 @@ export function parseAiResponse(response: string): AiOperation[] {
     // tryParseAsJson 可能会抛出验证失败的错误，这里捕获并打印
     console.warn(CliStyle.warning(`尝试 JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`));
   }
-  
+
   // 回退到定界格式
-  const delimitedOps = parseDelimitedOperations(trimmed);
+  const delimitedOps = parseDelimitedOperations(trimmed, shouldValidate);
   if (delimitedOps.length > 0) {
     return delimitedOps;
   }
 
   // 都没有成功
-  const hasDelimiters = trimmed.includes(OPERATION_START_DELIMITER);
+  const hasDelimiters = trimmed.includes(startDelimiter());
   if (hasDelimiters) {
     console.log(CliStyle.warning('检测到定界符但格式无效'));
   } else {

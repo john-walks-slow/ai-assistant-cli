@@ -43,7 +43,7 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
           `${String(index + 1).padStart(4)}|${line}`
         ).join('\n');
         
-        return `--- FILE: ${file} ---\n${numberedContent}`;
+        return `--- FILE: ${file} ---\n${content}`;
       } catch (error) {
         console.log(CliStyle.warning(`警告: 无法读取文件 ${file}，跳过。错误: ${(error as Error).message}`));
         return '';

@@ -1,9 +1,7 @@
 import {
-  CONTENT_END_DELIMITER,
-  CONTENT_START_DELIMITER,
-  OPERATION_END_DELIMITER,
-  OPERATION_START_DELIMITER,
+  endDelimiter,
   OperationDescriptions,
+  startDelimiter,
 } from '../core/operation-definitions';
 
 /**
@@ -17,11 +15,12 @@ export function constructSystemPrompt(): string {
 **任务：**分析用户请求并以操作块序列响应。
 
 **核心规则：**
-- 每个操作块必须由 \`${OPERATION_START_DELIMITER}\` 和 \`${OPERATION_END_DELIMITER}\` 包围
-- 每个操作块包含数个参数和一个可选的内容区域
-- 内容区域必须由 \`${CONTENT_START_DELIMITER}\` 和 \`${CONTENT_END_DELIMITER}\` 包围
-- 确保所有块都正确关闭
-- **只输出操作块序列，不输出其他任何文本**
+- 每个操作块必须由 \`${startDelimiter()}\` 和 \`${endDelimiter()}\` 包围。
+- 每个操作块包含数个单行或多行参数。
+- 单行参数遵循YAML风格，\`{参数名}: {参数值}\`
+- 多行参数必须由 \`${startDelimiter('{参数名}')}\` 和 \`${endDelimiter('{参数名}')}\`包围。
+- 确保所有块都正确关闭。
+- **只输出操作块序列，不输出其他任何文本。**
 
 **操作块定义：**
 ${operationsDescription}
@@ -49,9 +48,11 @@ ${operationsDescription}
 export function createUserPrompt(userPrompt: string, context?: string): string {
   // 如果提供了文件上下文，将其格式化为一个块
   const contextBlock = context
-    ? `\n--- START OF FILE CONTEXT ---\n${context}\n--- END OF FILE CONTEXT ---`
+    ? `\n${startDelimiter('FILE_CONTEXT')}\n${context}\n${endDelimiter('FILE_CONTEXT')}`
     : '';
 
   // 将用户请求和上下文组合成最终的用户指令
   return `USER REQUEST: "${userPrompt}"\n${contextBlock}`;
 }
+
+// console.log(constructSystemPrompt());

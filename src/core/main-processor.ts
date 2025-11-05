@@ -6,11 +6,11 @@ import ora from 'ora';
 import { AiOperation, FileOperation, ResponseOperation } from '../types/operations';
 import { CliStyle } from '../utils/cli-style';
 import { getSystemPrompt } from '../utils/config-manager';
-import { getAiResponse } from '../utils/network';
 import { constructSystemPrompt, createUserPrompt } from '../constants/prompts';
 import { parseAiResponse } from './ai-response-parser';
 import { reviewAndExecutePlan } from './plan-reviewer';
 import { getFileContext } from './file-context';
+import { getAiResponse } from '../utils/network';
 
 /**
  * 处理用户请求的主调度函数。
@@ -140,8 +140,7 @@ export async function processAiResponse(aiResponse: string, userPrompt?: string)
 
     // 步骤2：处理文件操作
     if (fileOps.length > 0) {
-      const initialPromptMessage = '';
-      await reviewAndExecutePlan(fileOps, initialPromptMessage, userPrompt);
+      await reviewAndExecutePlan(fileOps, '', userPrompt);
     } else {
       console.log(CliStyle.success('AI操作完成（仅包含说明文本）。'));
     }

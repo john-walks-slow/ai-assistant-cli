@@ -3,17 +3,18 @@ import * as path from 'path';
 import inquirer from 'inquirer';
 import ora from 'ora';
 
-import { AiOperation, FileOperation } from '../types/operations';
 import { CliStyle } from '../utils/cli-style';
-import { openInEditor, showDiffInVsCode } from '../utils/editor';
+import { openInEditor, showDiffInVsCode } from '../utils/editor-utils';
 import { OperationValidator } from './operation-definitions';
 import { executePlan } from './plan-executor';
+import { replaceInFile } from '../utils/file-utils';
+import { FileOperation } from './operation-schema';
 
 /**
  * 向控制台显示提议的文件操作摘要。
  * @param operations - 要显示的文件操作列表。
  */
-export function displayPlan(operations: FileOperation[]): void {
+export async function displayPlan(operations: FileOperation[]): Promise<void> {
   console.log(CliStyle.warning('\n--- 提议的文件计划 ---'));
   if (operations.length === 0) {
     console.log(CliStyle.muted('未提议文件操作。'));
@@ -29,6 +30,18 @@ export function displayPlan(operations: FileOperation[]): void {
     return;
   }
 
+  // 验证操作的可达性
+  console.log(CliStyle.info('正在验证操作可达性...'));
+  const reachabilityValidation = await OperationValidator.validateOperationsReachability(operations);
+  if (!reachabilityValidation.isValid) {
+    console.log(CliStyle.warning('警告: 发现不可达操作，但将继续显示计划。'));
+    reachabilityValidation.errors?.forEach(error => {
+      console.log(CliStyle.warning(`  ${error}`));
+    });
+  } else {
+    console.log(CliStyle.success('✓ 所有操作可达'));
+  }
+
   operations.forEach((op) => {
     const typeStyled = CliStyle.operationType(op.type);
     let line = `${typeStyled}: `;
@@ -39,19 +52,14 @@ export function displayPlan(operations: FileOperation[]): void {
     }
     switch (op.type) {
       case 'create':
+      case 'replaceInFile':
         line += CliStyle.filePath(op.filePath);
-        break;
-      case 'edit':
-        line += CliStyle.filePath(op.filePath);
-        if (op.startLine && op.endLine) {
-          line += ` (lines ${op.startLine} to ${op.endLine})`;
-        }
         break;
       case 'delete':
         line += CliStyle.filePath(op.filePath);
         break;
       case 'rename':
-        line += `${CliStyle.filePath(op.oldPath || 'unknown')} -> ${CliStyle.filePath(op.filePath)}`;
+        line += `${CliStyle.filePath(op.oldPath)} -> ${CliStyle.filePath(op.newPath)}`;
         break;
       default:
         line = `${CliStyle.warning('未知')}: ${JSON.stringify(op)}`;
@@ -82,47 +90,14 @@ async function reviewChangesInDetail(operations: FileOperation[]): Promise<FileO
   const reviewedOperations: FileOperation[] = [];
 
   for (const op of operations) {
-    if (op.type === 'edit' || op.type === 'create') {
+    if (op.type === 'create') {
       let originalContentForDiff = '';
       let ignoreLineRange = false;
-      if (op.type === 'edit') {
-        try {
-          await fs.access(op.filePath);
-          originalContentForDiff = await fs.readFile(op.filePath, 'utf-8');
-          console.log(CliStyle.info(`\n正在显示编辑差异: ${CliStyle.filePath(op.filePath)}`));
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-            console.log(CliStyle.warning(`\n文件不存在: ${CliStyle.filePath(op.filePath)}。将提议内容显示为新文件。`));
-            originalContentForDiff = '';
-            if (op.startLine || op.endLine) {
-              console.log(CliStyle.warning('文件不存在，忽略行范围，将作为完整替换处理。'));
-              ignoreLineRange = true;
-            }
-          } else {
-            console.log(CliStyle.warning(`\n无法读取文件: ${CliStyle.filePath(op.filePath)}。跳过差异显示。`));
-            reviewedOperations.push(op); // 即使跳过差异，仍然保留操作
-            continue;
-          }
-        }
-      } else if (op.type === 'create') {
-        console.log(CliStyle.info(`\n正在显示创建内容: ${CliStyle.filePath(op.filePath)}`));
-        originalContentForDiff = '';
-      }
+      console.log(CliStyle.info(`\n正在显示创建内容: ${CliStyle.filePath(op.filePath)}`));
+      originalContentForDiff = '';
 
       let fullNewContent = op.content;
 
-      if (op.type === 'edit' && originalContentForDiff !== '' && !ignoreLineRange && op.startLine && op.endLine) {
-        const start = op.startLine - 1;
-        const end = op.endLine;
-        if (isNaN(start) || isNaN(end) || start < 0 || end < start || end > originalContentForDiff.split('\n').length + 1) {
-          console.log(CliStyle.warning(`无效的行范围 ${op.startLine}-${op.endLine}，将作为完整替换处理。`));
-        } else {
-          const lines = originalContentForDiff.split('\n');
-          const newLines = op.content.split('\n');
-          lines.splice(start, end - start, ...newLines);
-          fullNewContent = lines.join('\n');
-        }
-      }
 
       try {
         const editedContent = await showDiffInVsCode(
@@ -154,6 +129,43 @@ async function reviewChangesInDetail(operations: FileOperation[]): Promise<FileO
           // Create 操作，用户可能取消了
           console.log(CliStyle.muted(`跳过创建 ${CliStyle.filePath(op.filePath)}。`));
           // 不添加到 reviewedOperations，相当于移除
+        }
+      } catch (error) {
+        console.log(CliStyle.warning(`审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`));
+        reviewedOperations.push(op); // 发生错误时保留原始操作
+      }
+    } else if (op.type === 'replaceInFile') {
+      console.log(CliStyle.info(`\n正在显示替换内容: ${CliStyle.filePath(op.filePath)}`));
+
+      try {
+        // 读取文件的当前内容
+        const originalContent = await fs.readFile(op.filePath, 'utf-8');
+        const fullNewContent = replaceInFile(originalContent, op.content, op.find);
+
+        const editedContent = await showDiffInVsCode(
+          originalContent,
+          fullNewContent,
+          op.filePath,
+        );
+
+        if (editedContent !== null) {
+          // 用户修改并保存了内容
+          const updatedOp = { ...op, content: editedContent } as FileOperation;
+          // 移除 find，因为编辑后可能不再是替换操作
+          delete (updatedOp as any).find;
+
+          // 验证修改后的操作
+          const updatedValidation = OperationValidator.validateOperation(updatedOp);
+          if (!updatedValidation.isValid) {
+            console.log(CliStyle.warning(`警告: 修改后的操作验证失败: ${updatedValidation.errors?.join(', ') || '未知错误'}`));
+            reviewedOperations.push(op); // 如果验证失败，保留原始操作
+          } else {
+            console.log(CliStyle.success(`已更新 ${CliStyle.filePath(op.filePath)} 的计划内容。`));
+            reviewedOperations.push(updatedOp);
+          }
+        } else {
+          // 用户未修改或取消
+          reviewedOperations.push(op);
         }
       } catch (error) {
         console.log(CliStyle.warning(`审查 ${CliStyle.filePath(op.filePath)} 时出错: ${(error as Error).message}`));
@@ -244,7 +256,7 @@ export async function reviewAndExecutePlan(
     if (currentPromptMessage) {
       console.log(CliStyle.info(currentPromptMessage));
     }
-    displayPlan(currentOperations);
+    await displayPlan(currentOperations);
 
     const { choice } = await inquirer.prompt([{
       type: 'list',
@@ -281,20 +293,33 @@ export async function reviewAndExecutePlan(
               }
             }
 
+            // 验证操作可达性
+            console.log(CliStyle.info('正在验证操作可达性...'));
+            const reachabilityValidation = await OperationValidator.validateOperationsReachability(currentOperations);
+            if (!reachabilityValidation.isValid) {
+              console.log(CliStyle.error('计划包含不可达操作，无法应用。'));
+              reachabilityValidation.errors?.forEach(error => {
+                console.log(CliStyle.error(`  ${error}`));
+              });
+              const { forceApply } = await inquirer.prompt([{
+                type: 'confirm',
+                name: 'forceApply',
+                message: '是否强制应用可能不可达的计划？',
+                default: false,
+              }]);
+
+              if (!forceApply) {
+                break;
+              }
+            } else {
+              console.log(CliStyle.success('✓ 所有操作可达'));
+            }
+
             await executePlan(currentOperations, userPrompt || 'AI plan execution');
             inReviewLoop = false;
           } catch (error) {
             console.error(CliStyle.error(`\n应用计划失败: ${(error as Error).message}`));
-            const { retry } = await inquirer.prompt([{
-              type: 'confirm',
-              name: 'retry',
-              message: '是否重试应用计划？',
-              default: false,
-            }]);
-
-            if (!retry) {
-              inReviewLoop = false;
-            }
+            inReviewLoop = false;
           }
         }
         break;
@@ -331,5 +356,10 @@ export async function reviewAndExecutePlan(
         inReviewLoop = false;
         break;
     }
+  }
+
+  // 重新显示更新后的计划
+  if (currentPromptMessage && currentOperations.length > 0) {
+    await displayPlan(currentOperations);
   }
 }

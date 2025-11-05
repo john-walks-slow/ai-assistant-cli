@@ -5,13 +5,13 @@ import * as readline from 'readline';
 import * as fs from 'fs/promises';
 
 import { processRequest, processAiResponse } from './core/main-processor';
-import { OPERATION_START_DELIMITER } from './core/operation-definitions';
 import { CliStyle } from './utils/cli-style';
 import * as packageJson from '../package.json';
 import { listAvailableModels, selectModelInteractive } from './commands/model';
 import { listConfig, resetConfig, setConfig } from './commands/config';
 import { deleteHistory, listHistory, redoHistory, undoHistory } from './commands/history';
 import { applyTemplate, listTemplates, showTemplate } from './commands/template';
+import { startDelimiter } from './core/operation-definitions';
 
 const program = new Command();
 
@@ -24,7 +24,6 @@ program
   .description('简单 AI 编码助手')
   .argument('[prompt]', 'AI指令。未提供时将提示输入。支持 ask: 使用前缀来省略系统提示词。')
   .argument('[files...]', '可选的文件列表作为上下文。')
-  .option('-a, --ask', '省略系统提示词，仅发送用户提示。')
   .option('-s, --system <prompt>', '使用自定义系统提示词（覆盖默认系统提示）。')
   .action(async (promptArg: string | undefined, files: string[], options: { ask?: boolean; system?: string; }) => {
     let actualPrompt: string;
@@ -61,12 +60,6 @@ program
         actualPrompt = promptArg;
       }
     }
-
-    // 检查 --ask 标志
-    if (options.ask) {
-      useDefaultSystemPrompt = false;
-    }
-
     // 如果提供了 --system 选项，使用自定义系统提示
     if (customSystemPrompt) {
       useDefaultSystemPrompt = false;
@@ -102,7 +95,7 @@ program
     const trimmedSource = planSource.trim();
     // 判断 planSource 是直接的计划内容（定界或JSON）还是文件路径。
     // 如果它以已知格式的起始符开头，则假定是直接内容。
-    const isDirectStringContent = trimmedSource.startsWith(OPERATION_START_DELIMITER) ||
+    const isDirectStringContent = trimmedSource.startsWith(startDelimiter()) ||
       trimmedSource.startsWith('[') ||
       trimmedSource.startsWith('{');
 
@@ -151,9 +144,8 @@ program
   .addCommand(new Command('redo')
     .description('重新应用指定的历史记录所做的更改，而不删除历史记录。')
     .addArgument(new Argument('id|name|~n', '历史记录的ID、名称或索引（如 ~1）'))
-    .option('-f, --force', '强制重新应用，跳过内容变化检查')
-    .action(async (idOrName: string, options: { force?: boolean; }) => {
-      await redoHistory(idOrName, options.force || false);
+    .action(async (idOrName: string) => {
+      await redoHistory(idOrName);
     }))
   .addCommand(new Command('delete')
     .description('删除指定的历史记录。')

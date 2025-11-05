@@ -1,82 +1,53 @@
 import { z } from 'zod';
 
-/**
- * 所有操作共享的基础 Zod Schema。
- */
+export const OperationTypeSchema = z.enum(['response', 'create', 'replaceInFile', 'rename', 'delete']);
+
 export const BaseOperationSchema = z.object({
-  type: z.enum(['response', 'create', 'edit', 'rename', 'delete']),
+  type: OperationTypeSchema,
   comment: z.string().optional(),
 });
 
-/**
- * Response 操作的 Zod Schema。
- */
 export const ResponseOperationSchema = BaseOperationSchema.extend({
   type: z.literal('response'),
   content: z.string(),
 });
 
-/**
- * Create 操作的 Zod Schema。
- */
 export const CreateOperationSchema = BaseOperationSchema.extend({
   type: z.literal('create'),
   filePath: z.string().min(1),
   content: z.string(),
 });
 
-/**
- * Edit 操作的 Zod Schema。
- */
-export const EditOperationSchema = BaseOperationSchema.extend({
-  type: z.literal('edit'),
+export const ReplaceInFileOperationSchema = BaseOperationSchema.extend({
+  type: z.literal('replaceInFile'),
   filePath: z.string().min(1),
+  find: z.string().optional(),
   content: z.string(),
-  originalContent: z.string().optional(),
-  startLine: z.coerce.number().positive().optional(), // 可选的开始行号（1-based）
-  endLine: z.coerce.number().positive().optional(), // 可选的结束行号（1-based）
 });
 
-/**
- * Rename 操作的 Zod Schema。
- */
 export const RenameOperationSchema = BaseOperationSchema.extend({
   type: z.literal('rename'),
   oldPath: z.string().min(1),
-  filePath: z.string().min(1),
-  originalPath: z.string().optional(),
+  newPath: z.string().min(1),
 });
 
-/**
- * Delete 操作的 Zod Schema。
- */
 export const DeleteOperationSchema = BaseOperationSchema.extend({
   type: z.literal('delete'),
   filePath: z.string().min(1),
-  originalContent: z.string().optional(),
 });
 
-/**
- * 文件操作的联合类型 Zod Schema。
- */
 export const FileOperationSchema = z.union([
   CreateOperationSchema,
-  EditOperationSchema,
+  ReplaceInFileOperationSchema,
   RenameOperationSchema,
   DeleteOperationSchema,
 ]);
 
-/**
- * 所有 AI 操作的联合类型 Zod Schema。
- */
 export const AiOperationSchema = z.union([
   ResponseOperationSchema,
   FileOperationSchema,
 ]);
 
-/**
- * 操作数组的 Zod Schema。
- */
 export const OperationsArraySchema = z.array(AiOperationSchema);
 
 /**
@@ -135,3 +106,45 @@ export function validateOperations(operations: unknown[]): ValidationResult {
 
   return { isValid: true };
 }
+
+// 以下为从 Zod schema 推断的类型
+
+/**
+ * 所有支持的操作类型。
+ */
+export type OperationType = z.infer<typeof OperationTypeSchema>;
+
+/**
+ * Response 操作类型
+ */
+export type ResponseOperation = z.infer<typeof ResponseOperationSchema>;
+
+/**
+ * Create 操作类型
+ */
+export type CreateOperation = z.infer<typeof CreateOperationSchema>;
+
+/**
+ * ReplaceInFile 操作类型
+ */
+export type ReplaceInFileOperation = z.infer<typeof ReplaceInFileOperationSchema>;
+
+/**
+ * Rename 操作类型
+ */
+export type RenameOperation = z.infer<typeof RenameOperationSchema>;
+
+/**
+ * Delete 操作类型
+ */
+export type DeleteOperation = z.infer<typeof DeleteOperationSchema>;
+
+/**
+ * 所有 AI 操作的联合类型
+ */
+export type AiOperation = z.infer<typeof AiOperationSchema>;
+
+/**
+ * 文件操作的联合类型
+ */
+export type FileOperation = z.infer<typeof FileOperationSchema>;

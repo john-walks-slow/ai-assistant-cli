@@ -34,3 +34,35 @@ export async function replaceLines(filePath: string, newContent: string, startLi
     console.error('处理文件时发生错误:', err);
   }
 }
+
+/**
+ * 执行文件内容替换操作，返回新的文件内容。
+ * @param originalContent - 文件的原始内容。
+ * @param find - 要查找的字符串（可选，如果未提供，则直接用 content 替换整个内容）。
+ * @param content - 要替换的内容。
+ * @returns 替换后的新内容。
+ * @throws {Error} 如果替换执行失败。
+ */
+export function replaceInFile(originalContent: string, content: string, find?: string): string {
+  let newContent = content;
+
+  // 如果有 find，则替换；否则直接用 content
+  if (find) {
+    const lineEnding = originalContent.includes('\r\n') ? '\r\n' : '\n';
+    const replacementString = content.replace(/(?<!\r)\n/g, lineEnding);
+    const adaptedFind = find.replace(/(?<!\r)\n/g, lineEnding);
+    const matchCount = originalContent.split(adaptedFind).length - 1;
+
+    if (matchCount === 0) {
+      throw new Error(`未找到匹配项: ${JSON.stringify(adaptedFind)}`);
+    }
+
+    if (matchCount > 1) {
+      throw new Error(`找到多个匹配项: ${JSON.stringify(adaptedFind)}，请指定更具体的匹配模式`);
+    }
+
+    newContent = originalContent.replace(adaptedFind, replacementString);
+  }
+
+  return newContent;
+}
