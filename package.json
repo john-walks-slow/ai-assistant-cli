@@ -16,6 +16,10 @@
     "mai": "dist/index.js"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.17",
+    "@ai-sdk/google": "^2.0.14",
+    "@ai-sdk/openai": "^2.0.32",
+    "ai": "^5.0.48",
     "axios": "^1.12.2",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
