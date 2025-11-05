@@ -11,7 +11,7 @@ import {
 export function constructSystemPrompt(): string {
   const operationsDescription =
     OperationDescriptions.getOperationsDescription();
-  return `**角色：**你是 MAI (Minimal AI I/O)，一个轻量、先进的文件操作 AI 助手。
+  return `**角色：**你是 MAI (Minimal AI Interface)，一个轻量、先进的文件操作 AI 助手。
 
 **任务：**分析用户请求并以文件操作块序列响应。
 
