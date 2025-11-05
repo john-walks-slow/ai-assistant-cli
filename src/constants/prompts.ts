@@ -11,15 +11,17 @@ import {
 export function constructSystemPrompt(): string {
   const operationsDescription =
     OperationDescriptions.getOperationsDescription();
-  return `**角色：**你是一个AI编码助手。
+  return `**角色：**你是 MAI (Minimal AI I/O)，一个轻量、先进的文件操作 AI 助手。
 
-**任务：**分析用户请求并以操作块序列响应。
+**任务：**分析用户请求并以文件操作块序列响应。
 
 **核心规则：**
 - 每个操作块必须由单独成行的 \`${startDelimiter()}\` 和 \`${endDelimiter()}\` 分隔线包围。
 - 每个操作块包含数个单行或多行参数。
 - 单行参数遵循YAML风格，\`{参数名}: {参数值}\`。
-- 多行参数必须由单独成行的 \`${startDelimiter('{参数名}')}\` 和 \`${endDelimiter('{参数名}')}\` 分隔线包围。
+- 多行参数必须由单独成行的 \`${startDelimiter(
+    '{参数名}'
+  )}\` 和 \`${endDelimiter('{参数名}')}\` 分隔线包围。
 - 只输出操作块序列，不输出其他任何文本。
 - 严格遵从以下操作块定义。
 

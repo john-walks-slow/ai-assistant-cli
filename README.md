@@ -1,11 +1,17 @@
 # MAI - 轻量、可控的文件编辑 AI CLI
 
-MAI (Minimal file operation AI) 旨在成为一个最小化的接口，让你通过自然语言指令，对本地文件执行精确、可审查、无状态的编辑。
+MAI (Minimal AI I/O) 旨在成为一个最小化的接口，让你通过自然语言指令，对本地文件执行精确、可审查的编辑。
+
+## 示例
+
+```bash
+mai "翻译注释为中文" "**/*.js"
+```
 
 ## 特性
 
 - 单步响应，无复杂 Agentic 流程
-- 默认无状态，完全手动指定上下文（支持引用文件、glob模式、操作历史）
+- 无状态，完全手动指定所需上下文（支持引用文件、glob模式、操作历史）
 - 支持交互式审查文件编辑计划
 - 内置轻量操作历史（支持回退、重做）
 - 兼容任意 openai-compatible 模型
@@ -17,7 +23,7 @@ MAI (Minimal file operation AI) 旨在成为一个最小化的接口，让你通
 
 通过 npm 全局安装：
 ```bash
-npm install -g mai-cli
+npm install -g @johnnren/mai-cli
 ```
 
 ### 2. API Key

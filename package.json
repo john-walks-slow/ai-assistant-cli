@@ -1,7 +1,7 @@
 {
   "name": "@johnnren/mai-cli",
   "version": "0.1.0",
-  "description": "简单 AI 编码助手",
+  "description": "Minimal AI Interface for file manipulating",
   "main": "dist/index.js",
   "scripts": {
     "build": "rimraf dist && tsc",
@@ -10,13 +10,14 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "JohnnRen",
+  "author": "johnnren",
   "license": "MIT",
   "bin": {
     "mai": "dist/index.js"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.17",
