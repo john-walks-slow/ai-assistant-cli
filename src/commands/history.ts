@@ -51,19 +51,23 @@ export interface HistoryEntry {
 export function parseIdOrName(
   idOrName: string,
   history: HistoryEntry[],
-): { entry?: HistoryEntry; index?: number; isIndex: boolean; } {
+): { entry?: HistoryEntry; index?: number; isIndex: boolean } {
   // 检查是否为索引格式 ~n
   if (idOrName.startsWith('~') && /^\~\d+$/.test(idOrName)) {
     const index = parseInt(idOrName.slice(1), 10);
     if (index > 0 && index <= history.length) {
       return { entry: history[index - 1], index: index - 1, isIndex: true };
     } else {
-      throw new Error(`索引 ${idOrName} 超出范围 (有效范围: 1-${history.length})`);
+      throw new Error(
+        `索引 ${idOrName} 超出范围 (有效范围: 1-${history.length})`,
+      );
     }
   }
 
   // 按 ID 或名称查找
-  const foundEntry = history.find((h) => h.id === idOrName || h.name === idOrName);
+  const foundEntry = history.find(
+    (h) => h.id === idOrName || h.name === idOrName,
+  );
   if (foundEntry) {
     const index = history.indexOf(foundEntry);
     return { entry: foundEntry, index, isIndex: false };
@@ -92,7 +96,11 @@ export async function loadHistory(): Promise<HistoryEntry[]> {
  */
 export async function saveHistory(history: HistoryEntry[]): Promise<void> {
   await initializeHistoryFile();
-  await fs.writeFile(GLOBAL_HISTORY_FILE!, JSON.stringify(history, null, 2), 'utf-8');
+  await fs.writeFile(
+    GLOBAL_HISTORY_FILE!,
+    JSON.stringify(history, null, 2),
+    'utf-8',
+  );
 }
 
 /**
@@ -109,7 +117,9 @@ export async function appendHistory(entry: HistoryEntry): Promise<void> {
  * 列出所有历史记录。
  * @param filterFileOnly - 是否只显示包含文件操作的历史记录。
  */
-export async function listHistory(filterFileOnly: boolean = false): Promise<void> {
+export async function listHistory(
+  filterFileOnly: boolean = false,
+): Promise<void> {
   const history = await loadHistory();
   if (history.length === 0) {
     console.log(CliStyle.info('没有历史记录。'));
@@ -119,7 +129,9 @@ export async function listHistory(filterFileOnly: boolean = false): Promise<void
   let displayHistory = history;
   let noRecordsMsg = '没有历史记录。';
   if (filterFileOnly) {
-    displayHistory = history.filter(entry => entry.operations.some(op => op.type !== 'response'));
+    displayHistory = history.filter((entry) =>
+      entry.operations.some((op) => op.type !== 'response'),
+    );
     noRecordsMsg = '没有包含文件操作的历史记录。';
   }
 
@@ -128,22 +140,39 @@ export async function listHistory(filterFileOnly: boolean = false): Promise<void
     return;
   }
 
-  console.log(CliStyle.success(`历史记录${filterFileOnly ? ' (仅包含文件操作)' : ''}:`));
-  console.log(CliStyle.muted('使用 ~n 格式（如 ~1 表示最近一次，基于所有历史记录）来引用历史记录。'));
+  console.log(
+    CliStyle.success(`历史记录${filterFileOnly ? ' (仅包含文件操作)' : ''}:`),
+  );
+  console.log(
+    CliStyle.muted(
+      '使用 ~n 格式（如 ~1 表示最近一次，基于所有历史记录）来引用历史记录。',
+    ),
+  );
 
   displayHistory.forEach((entry, displayIndex) => {
     const originalIndex = history.indexOf(entry);
     const originalDisplayIndex = originalIndex + 1;
     const idOrName = entry.name || entry.id;
     const totalOps = entry.operations.length;
-    const fileOps = entry.operations.filter(op => op.type !== 'response');
+    const fileOps = entry.operations.filter((op) => op.type !== 'response');
     const fileOpCount = fileOps.length;
     const responseCount = totalOps - fileOpCount;
 
-    const appliedStatus = entry.applied === undefined ? '' : (entry.applied ? ' (已应用)' : ' (未应用)');
-    console.log(`${CliStyle.info(`${displayIndex + 1}. ${idOrName} (~${originalDisplayIndex})${appliedStatus}`)} - ${entry.description} (${new Date(entry.timestamp).toLocaleString()})`);
-    console.log(`   提示: ${CliStyle.muted(entry.prompt.substring(0, 50) + (entry.prompt.length > 50 ? '...' : ''))}`);
-    console.log(`   操作: ${fileOpCount} 文件操作 ${responseCount > 0 ? `+ ${responseCount} 响应` : ''}${fileOpCount === 0 ? ' (纯AI响应)' : ''}`);
+    const appliedStatus =
+      entry.applied === undefined
+        ? ''
+        : entry.applied
+          ? ' (已应用)'
+          : ' (未应用)';
+    console.log(
+      `${CliStyle.info(`${displayIndex + 1}. ${idOrName} (~${originalDisplayIndex})${appliedStatus}`)} - ${entry.description} (${new Date(entry.timestamp).toLocaleString()})`,
+    );
+    console.log(
+      `   提示: ${CliStyle.muted(entry.prompt.substring(0, 50) + (entry.prompt.length > 50 ? '...' : ''))}`,
+    );
+    console.log(
+      `   操作: ${fileOpCount} 文件操作 ${responseCount > 0 ? `+ ${responseCount} 响应` : ''}${fileOpCount === 0 ? ' (纯AI响应)' : ''}`,
+    );
     console.log();
   });
 }
@@ -173,12 +202,16 @@ export async function undoHistory(idOrName: string): Promise<void> {
     return;
   }
 
-  const displayId = isIndex ? `~${index! + 1}` : (entry.name || entry.id);
-  console.log(CliStyle.process(`正在撤销: ${entry.description} (${displayId})`));
+  const displayId = isIndex ? `~${index! + 1}` : entry.name || entry.id;
+  console.log(
+    CliStyle.process(`正在撤销: ${entry.description} (${displayId})`),
+  );
   console.log(CliStyle.muted(`涉及 ${entry.operations.length} 个操作`));
 
   // 只处理文件操作，忽略 response 操作
-  const fileOperations = entry.operations.filter((op): op is FileOperation => op.type !== 'response');
+  const fileOperations = entry.operations.filter(
+    (op): op is FileOperation => op.type !== 'response',
+  );
 
   // 生成undo operations，在reverse order
   const reversedFileOps = fileOperations.slice().reverse();
@@ -192,18 +225,19 @@ export async function undoHistory(idOrName: string): Promise<void> {
         undoOp = {
           type: 'delete',
           filePath: op.filePath,
-          comment: `撤销创建: ${op.filePath}`
+          comment: `撤销创建: ${op.filePath}`,
         };
         break;
 
       case 'delete':
-        const originalContentForDelete = entry.originalFileContents?.[op.filePath];
+        const originalContentForDelete =
+          entry.originalFileContents?.[op.filePath];
         if (originalContentForDelete !== undefined) {
           undoOp = {
             type: 'create',
             filePath: op.filePath,
             content: originalContentForDelete,
-            comment: `撤销删除: 恢复 ${op.filePath}`
+            comment: `撤销删除: 恢复 ${op.filePath}`,
           };
         }
         break;
@@ -214,20 +248,21 @@ export async function undoHistory(idOrName: string): Promise<void> {
             type: 'move',
             oldPath: op.newPath,
             newPath: op.oldPath,
-            comment: `撤销移动: ${op.newPath} -> ${op.oldPath}`
+            comment: `撤销移动: ${op.newPath} -> ${op.oldPath}`,
           };
         }
         break;
 
       case 'writeWithReplace':
-        const originalContentForReplace = entry.originalFileContents?.[op.filePath];
+        const originalContentForReplace =
+          entry.originalFileContents?.[op.filePath];
         if (originalContentForReplace !== undefined) {
           // 使用 create 来覆盖整个文件恢复原始内容
           undoOp = {
             type: 'writeWithReplace',
             filePath: op.filePath,
             content: originalContentForReplace,
-            comment: `撤销替换: 恢复 ${op.filePath} 原始内容`
+            comment: `撤销替换: 恢复 ${op.filePath} 原始内容`,
           };
         }
         break;
@@ -250,9 +285,13 @@ export async function undoHistory(idOrName: string): Promise<void> {
   // 使用 plan-reviewer 执行撤销计划
   try {
     await reviewAndExecutePlan(undoOperations, '撤销计划审查:', entry.prompt);
-    console.log(CliStyle.success(`\n撤销完成: ${entry.description} (${displayId})`));
+    console.log(
+      CliStyle.success(`\n撤销完成: ${entry.description} (${displayId})`),
+    );
   } catch (error) {
-    console.error(CliStyle.error(`撤销计划执行失败: ${(error as Error).message}`));
+    console.error(
+      CliStyle.error(`撤销计划执行失败: ${(error as Error).message}`),
+    );
   }
   // 保留历史记录以支持 redo
 }
@@ -284,10 +323,18 @@ export async function redoHistory(idOrName: string): Promise<void> {
     return;
   }
 
-  const displayId = isIndex ? `~${index! + 1}` : (entry.name || entry.id);
+  const displayId = isIndex ? `~${index! + 1}` : entry.name || entry.id;
   console.log(CliStyle.process(`正在重新应用: ${displayId}`));
-  console.log(CliStyle.muted(`涉及 ${entry.operations.filter(op => op.type !== 'response').length} 个文件操作`));
-  await reviewAndExecutePlan(entry.operations.filter(op => op.type !== 'response'), ``, entry.prompt);
+  console.log(
+    CliStyle.muted(
+      `涉及 ${entry.operations.filter((op) => op.type !== 'response').length} 个文件操作`,
+    ),
+  );
+  await reviewAndExecutePlan(
+    entry.operations.filter((op) => op.type !== 'response'),
+    ``,
+    entry.prompt,
+  );
 }
 
 /**
@@ -305,30 +352,39 @@ export async function saveAiHistory(
   operations: AiOperation[],
   fileOriginalContents: Map<string, string> = new Map(),
   executionDescription?: string,
-  files?: string[]
+  files?: string[],
 ): Promise<HistoryEntry> {
   try {
     console.log(CliStyle.muted('正在保存本次AI对话历史...'));
 
     // 转换原始文件内容为记录对象（仅为文件操作）
-    const originalFileContents: Record<string, string> = Object.fromEntries(fileOriginalContents);
-  
+    const originalFileContents: Record<string, string> =
+      Object.fromEntries(fileOriginalContents);
+
     const historyEntry: HistoryEntry = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       prompt: userPrompt,
       aiResponse,
-      description: executionDescription || `AI响应和 ${operations.length} 个操作`,
+      description:
+        executionDescription || `AI响应和 ${operations.length} 个操作`,
       operations,
-      originalFileContents: Object.keys(originalFileContents).length > 0 ? originalFileContents : undefined,
-      ...(operations.some(op => op.type !== 'response') ? { applied: false } : {}),
+      originalFileContents:
+        Object.keys(originalFileContents).length > 0
+          ? originalFileContents
+          : undefined,
+      ...(operations.some((op) => op.type !== 'response')
+        ? { applied: false }
+        : {}),
       ...(files && files.length > 0 ? { files } : {}),
     };
-  
+
     await appendHistory(historyEntry);
     return historyEntry;
   } catch (error) {
-    console.log(CliStyle.warning(`警告：无法保存AI历史: ${(error as Error).message}`));
+    console.log(
+      CliStyle.warning(`警告：无法保存AI历史: ${(error as Error).message}`),
+    );
     throw error;
   }
 }
@@ -363,15 +419,21 @@ export async function deleteHistory(idOrName: string): Promise<void> {
     return;
   }
 
-  const displayId = isIndex ? `~${index! + 1}` : (entry.name || entry.id);
+  const displayId = isIndex ? `~${index! + 1}` : entry.name || entry.id;
   const initialLength = history.length;
   const filteredHistory = history.filter((h) => h !== entry);
 
   await saveHistory(filteredHistory);
-  console.log(CliStyle.success(`已删除历史记录: ${displayId} (${initialLength - filteredHistory.length} 个条目）`));
+  console.log(
+    CliStyle.success(
+      `已删除历史记录: ${displayId} (${initialLength - filteredHistory.length} 个条目）`,
+    ),
+  );
 }
 
-export async function getHistoryById(idOrName: string): Promise<HistoryEntry | undefined> {
+export async function getHistoryById(
+  idOrName: string,
+): Promise<HistoryEntry | undefined> {
   try {
     const history = await loadHistory();
     if (history.length === 0) {
@@ -436,7 +498,9 @@ export async function getRecentHistory(depth: number): Promise<HistoryEntry[]> {
  */
 export function formatMultipleHistoryContexts(entries: HistoryEntry[]): string {
   if (entries.length === 0) return '';
-  return entries.map(entry => formatHistoryContext(entry)).join('\n\n---\n\n');
+  return entries
+    .map((entry) => formatHistoryContext(entry))
+    .join('\n\n---\n\n');
 }
 
 /**
@@ -444,7 +508,10 @@ export function formatMultipleHistoryContexts(entries: HistoryEntry[]): string {
  * @param id - 历史ID。
  * @param applied - 是否已应用。
  */
-export async function updateHistoryApplied(id: string, applied: boolean): Promise<void> {
+export async function updateHistoryApplied(
+  id: string,
+  applied: boolean,
+): Promise<void> {
   const history = await loadHistory();
   const entry = history.find((h: HistoryEntry) => h.id === id);
   if (entry) {

@@ -1,4 +1,3 @@
-
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { findGitRoot } from '../utils/git-helper';
@@ -31,7 +30,7 @@ type FieldConfig = {
 type TypedOperationConfig<T extends OperationType> = {
   description?: string;
   fields: {
-    [K in keyof Extract<AiOperation, { type: T; }>]: FieldConfig;
+    [K in keyof Extract<AiOperation, { type: T }>]: FieldConfig;
   };
 };
 
@@ -57,7 +56,8 @@ export class OperationDescriptions {
       },
     },
     create: {
-      description: '创建新文件。禁止用于修改已有文件，覆写已有文件请使用 writeWithReplace。',
+      description:
+        '创建新文件。禁止用于修改已有文件，覆写已有文件请使用 writeWithReplace。',
       fields: {
         type: { example: 'create' },
         filePath: {
@@ -65,14 +65,15 @@ export class OperationDescriptions {
         },
         comment: { example: '创建一个新的React组件。', optional: true },
         content: {
-          example: "const NewComponent = () => <div>Hello World</div>",
+          example: 'const NewComponent = () => <div>Hello World</div>',
           isBlock: true,
         },
       },
     },
 
     writeWithReplace: {
-      description: '编辑现有文件。find 参数留空时覆写整个文件；find 参数给定时，将查找到的目标文本替换为新文本。',
+      description:
+        '编辑现有文件。find 参数留空时覆写整个文件；find 参数给定时，将查找到的目标文本替换为新文本。',
       fields: {
         type: { example: 'writeWithReplace' },
         filePath: {
@@ -86,14 +87,13 @@ export class OperationDescriptions {
           example: 'const NewComponent = () => <div>Helo World</div>',
           description: `要查找并替换的目标文本。不支持通配符和正则表达式。请勿包含行号。*必须保证当前文件中有且仅有一个匹配项。*如果留空，则替换整个文件的内容。`,
           optional: true,
-          isBlock: true
+          isBlock: true,
         },
         content: {
           example: 'const NewComponent = () => <div>Hello World</div>',
           description: '替换为的新内容',
           isBlock: true,
         },
-    
       },
     },
     // edit: {
@@ -138,7 +138,7 @@ export class OperationDescriptions {
         },
         comment: {
           example: '将文件移动到新位置。',
-          optional: true
+          optional: true,
         },
       },
     },
@@ -151,16 +151,16 @@ export class OperationDescriptions {
         },
         comment: {
           example: '删除不再使用的旧文件。',
-          optional: true
+          optional: true,
         },
       },
     },
   } as const;
 
   /**
-  * 生成所有操作的描述文本，用于AI系统提示。
-  * @returns 操作描述字符串。
-  */
+   * 生成所有操作的描述文本，用于AI系统提示。
+   * @returns 操作描述字符串。
+   */
   static getOperationsDescription(): string {
     let description = '';
 
@@ -202,8 +202,13 @@ export class OperationDescriptions {
    * @returns 格式化后的 JSDoc 注释字符串，如果无需注释则为空字符串。
    * @private
    */
-  private static _buildFieldComment({ description, optional }: { description?: string; optional?: boolean; }): string {
-
+  private static _buildFieldComment({
+    description,
+    optional,
+  }: {
+    description?: string;
+    optional?: boolean;
+  }): string {
     let commentBlock = '';
     if (!description && !optional) {
       return commentBlock;
@@ -225,5 +230,4 @@ export class OperationDescriptions {
 
     return commentBlock;
   }
-
 }

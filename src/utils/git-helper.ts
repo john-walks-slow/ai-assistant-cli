@@ -9,7 +9,9 @@ import * as path from 'path';
  * @param startDir - 开始查找的目录。
  * @returns Git 仓库根目录的路径。
  */
-export async function findGitRoot(startDir: string = process.cwd()): Promise<string> {
+export async function findGitRoot(
+  startDir: string = process.cwd(),
+): Promise<string> {
   let currentDir = startDir;
   while (true) {
     const gitPath = path.join(currentDir, '.git');
@@ -17,14 +19,19 @@ export async function findGitRoot(startDir: string = process.cwd()): Promise<str
     try {
       await fs.access(gitPath); // 检查 .git 目录
       return currentDir;
-    } catch (e) { /* 忽略 */ }
+    } catch (e) {
+      /* 忽略 */
+    }
     try {
       await fs.access(packageJsonPath); // 检查 package.json 文件
       return currentDir;
-    } catch (e) { /* 忽略 */ }
+    } catch (e) {
+      /* 忽略 */
+    }
 
     const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) { // 已到达根目录
+    if (parentDir === currentDir) {
+      // 已到达根目录
       return startDir; // 如果未找到 .git 或 package.json，则回退到起始目录
     }
     currentDir = parentDir;

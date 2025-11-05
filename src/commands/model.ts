@@ -1,6 +1,10 @@
 import * as readline from 'readline';
 import { CliStyle } from '../utils/cli-style';
-import { getAvailableModels, getCurrentModel, setModel } from '../utils/config-manager';
+import {
+  getAvailableModels,
+  getCurrentModel,
+  setModel,
+} from '../utils/config-manager';
 
 /**
  * 列出所有可用的 AI 模型。
@@ -29,10 +33,13 @@ export const selectModelInteractive = async (): Promise<void> => {
   });
 
   const answer = await new Promise<string>((resolve) => {
-    rl.question(CliStyle.prompt(`请选择模型编号 (1-${models.length}): `), (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
+    rl.question(
+      CliStyle.prompt(`请选择模型编号 (1-${models.length}): `),
+      (answer) => {
+        rl.close();
+        resolve(answer.trim());
+      },
+    );
   });
 
   const choice = parseInt(answer, 10);

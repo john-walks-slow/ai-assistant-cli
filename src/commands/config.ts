@@ -31,7 +31,9 @@ export async function listConfig(): Promise<void> {
     const temperature = await getTemperature();
 
     const parsedModel = parseModel(currentModel);
-    const modelDisplay = parsedModel ? `${parsedModel.provider} / ${parsedModel.modelName}` : currentModel;
+    const modelDisplay = parsedModel
+      ? `${parsedModel.provider} / ${parsedModel.modelName}`
+      : currentModel;
 
     console.log(CliStyle.info('\n--- 当前配置 ---'));
 
@@ -40,7 +42,9 @@ export async function listConfig(): Promise<void> {
     console.log(`Temperature: ${temperature}`);
 
     if (systemPrompt) {
-      console.log(`系统提示词: ${CliStyle.muted('(已配置，长度: ' + systemPrompt.length + ' 字符)')}`);
+      console.log(
+        `系统提示词: ${CliStyle.muted('(已配置，长度: ' + systemPrompt.length + ' 字符)')}`,
+      );
     } else {
       console.log(`系统提示词: ${CliStyle.warning('使用默认')}`);
     }
@@ -51,7 +55,11 @@ export async function listConfig(): Promise<void> {
       console.log(`模板: ${CliStyle.warning('无')}`);
     }
 
-    console.log(CliStyle.info(`配置文件位置: ${path.join(os.homedir(), '.mai/config.json5')}`));
+    console.log(
+      CliStyle.info(
+        `配置文件位置: ${path.join(os.homedir(), '.mai/config.json5')}`,
+      ),
+    );
     console.log(CliStyle.info('--------------------------\n'));
   } catch (error) {
     console.error(CliStyle.error(`列出配置失败: ${(error as Error).message}`));
@@ -67,12 +75,14 @@ export async function listConfig(): Promise<void> {
  * 重置配置到默认值。
  */
 export async function resetConfig(): Promise<void> {
-  const { confirm } = await inquirer.prompt([{
-    type: 'confirm',
-    name: 'confirm',
-    message: '这将重置所有配置到默认值，确定要继续吗？',
-    default: false,
-  }]);
+  const { confirm } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirm',
+      message: '这将重置所有配置到默认值，确定要继续吗？',
+      default: false,
+    },
+  ]);
 
   if (!confirm) {
     console.log(CliStyle.info('已取消重置。'));
@@ -96,13 +106,18 @@ export async function resetConfig(): Promise<void> {
  * @param key - 配置键，如 'model', 'systemPrompt', 'historyDepth'
  * @param value - 配置值字符串，将根据类型转换
  */
-export async function directSetConfig(key: string, value: string): Promise<void> {
+export async function directSetConfig(
+  key: string,
+  value: string,
+): Promise<void> {
   try {
     const options = await getConfigurableOptions();
     const option = options.find((o: ConfigOption) => o.key === key);
 
     if (!option) {
-      throw new Error(`不支持的配置键: ${key}。可用键: ${options.map(o => o.key).join(', ')}`);
+      throw new Error(
+        `不支持的配置键: ${key}。可用键: ${options.map((o) => o.key).join(', ')}`,
+      );
     }
 
     let convertedValue: any = value;
@@ -122,14 +137,18 @@ export async function directSetConfig(key: string, value: string): Promise<void>
       convertedValue = num;
     } else if (option.type === 'select') {
       if (option.options && !option.options.includes(value)) {
-        throw new Error(`无效的选择值 for ${key}: ${value}。可用选项: ${option.options.join(', ')}`);
+        throw new Error(
+          `无效的选择值 for ${key}: ${value}。可用选项: ${option.options.join(', ')}`,
+        );
       }
     } // text 类型直接用字符串
 
     await option.setter(convertedValue);
     console.log(CliStyle.success(`${key} 已设置为: ${convertedValue}`));
   } catch (error) {
-    console.error(CliStyle.error(`设置 ${key} 失败: ${(error as Error).message}`));
+    console.error(
+      CliStyle.error(`设置 ${key} 失败: ${(error as Error).message}`),
+    );
     process.exit(1);
   }
 }

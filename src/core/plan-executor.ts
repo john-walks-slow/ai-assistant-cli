@@ -4,10 +4,16 @@ import inquirer from 'inquirer';
 // import ora from 'ora'; // ora 似乎未被使用，可以移除
 
 import { CliStyle } from '../utils/cli-style';
-import { replaceLines, replaceInFile, createFile, writeFileWithReplace, moveFile, deleteFile } from '../utils/file-utils';
+import {
+  replaceLines,
+  replaceInFile,
+  createFile,
+  writeFileWithReplace,
+  moveFile,
+  deleteFile,
+} from '../utils/file-utils';
 import { FileOperation, AiOperation } from './operation-schema';
 import { OperationValidator } from './operation-validator';
-
 
 /**
  * 执行AI提议的文件操作列表。
@@ -16,8 +22,15 @@ import { OperationValidator } from './operation-validator';
  * @returns 操作执行结果数组，包含成功/失败状态。
  * @throws {Error} 如果计划包含无效操作或执行不完整。
  */
-export async function executePlan(operations: FileOperation[], planDescription: string): Promise<{
-  executionResults: Array<{ operation: FileOperation; success: boolean; error?: string; }>;
+export async function executePlan(
+  operations: FileOperation[],
+  planDescription: string,
+): Promise<{
+  executionResults: Array<{
+    operation: FileOperation;
+    success: boolean;
+    error?: string;
+  }>;
   fileOriginalContents: Map<string, string>;
   successfulOps: number;
   failedOps: number;
@@ -47,17 +60,29 @@ export async function executePlan(operations: FileOperation[], planDescription: 
   // 使用 Zod 验证操作
   const validation = OperationValidator.validateOperations(operations);
   if (!validation.isValid) {
-    throw new Error(`计划包含无效操作: ${validation.errors?.join('; ') || '未知验证错误'}`);
+    throw new Error(
+      `计划包含无效操作: ${validation.errors?.join('; ') || '未知验证错误'}`,
+    );
   }
 
   // 创建可变操作数组以支持撤销
-  const executedOperations: FileOperation[] = operations.map((op) => ({ ...op }));
-  const executionResults: Array<{ operation: FileOperation; success: boolean; error?: string; }> = [];
+  const executedOperations: FileOperation[] = operations.map((op) => ({
+    ...op,
+  }));
+  const executionResults: Array<{
+    operation: FileOperation;
+    success: boolean;
+    error?: string;
+  }> = [];
   let successfulOps = 0;
   let failedOps = 0;
 
   for (const op of executedOperations) {
-    const result: { operation: FileOperation; success: boolean; error?: string; } = { operation: op, success: false };
+    const result: {
+      operation: FileOperation;
+      success: boolean;
+      error?: string;
+    } = { operation: op, success: false };
 
     try {
       // 执行具体操作
@@ -85,12 +110,17 @@ export async function executePlan(operations: FileOperation[], planDescription: 
       executionResults.push(result);
       successfulOps++;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       result.error = errorMessage;
       executionResults.push(result);
       failedOps++;
 
-      console.error(CliStyle.error(`\n  执行失败: ${JSON.stringify({ type: op.type, filePath: op.type === 'move' ? op.newPath : op.filePath })}`));
+      console.error(
+        CliStyle.error(
+          `\n  执行失败: ${JSON.stringify({ type: op.type, filePath: op.type === 'move' ? op.newPath : op.filePath })}`,
+        ),
+      );
       console.error(CliStyle.error(`    错误: ${errorMessage}`));
       console.log(CliStyle.warning('停止执行剩余操作。'));
     }

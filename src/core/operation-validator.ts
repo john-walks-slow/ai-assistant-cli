@@ -39,7 +39,7 @@ export class OperationValidator {
    * @returns 验证结果。
    */
   static async validateOperationReachability(
-    op: FileOperation
+    op: FileOperation,
   ): Promise<ValidationResult> {
     try {
       switch (op.type) {
@@ -75,7 +75,7 @@ export class OperationValidator {
    * @returns 验证结果。
    */
   static async validateOperationsReachability(
-    operations: FileOperation[]
+    operations: FileOperation[],
   ): Promise<ValidationResult> {
     const errors: string[] = [];
     for (let i = 0; i < operations.length; i++) {
@@ -100,7 +100,7 @@ export class OperationValidator {
    * 验证创建操作的可达性。
    */
   private static async validateCreateReachability(
-    op: FileOperation
+    op: FileOperation,
   ): Promise<ValidationResult> {
     const filePath = (op as any).filePath;
     if (!filePath) {
@@ -133,7 +133,7 @@ export class OperationValidator {
    * 验证替换操作的可达性。
    */
   private static async validatewriteWithReplaceReachability(
-    op: FileOperation
+    op: FileOperation,
   ): Promise<ValidationResult> {
     const filePath = (op as any).filePath;
     if (!filePath) {
@@ -183,7 +183,7 @@ export class OperationValidator {
    * 验证移动操作的可达性。
    */
   private static async validateMoveReachability(
-    op: FileOperation
+    op: FileOperation,
   ): Promise<ValidationResult> {
     const oldPath = (op as any).oldPath;
     const newPath = (op as any).newPath;
@@ -224,7 +224,7 @@ export class OperationValidator {
    * 验证删除操作的可达性。
    */
   private static async validateDeleteReachability(
-    op: FileOperation
+    op: FileOperation,
   ): Promise<ValidationResult> {
     const filePath = (op as any).filePath;
     if (!filePath) {

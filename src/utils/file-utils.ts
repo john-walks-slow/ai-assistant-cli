@@ -11,7 +11,10 @@ export async function isFileIgnored(relativePath: string): Promise<boolean> {
     const root = await findGitRoot();
     const gitignorePath = path.join(root, '.gitignore');
     const content = await fs.readFile(gitignorePath, 'utf8');
-    const lines = content.split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#'));
+    const lines = content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'));
 
     const positivePatterns: string[] = [];
     const negativePatterns: string[] = [];
@@ -26,8 +29,14 @@ export async function isFileIgnored(relativePath: string): Promise<boolean> {
 
     if (positivePatterns.length === 0) return false;
 
-    const positiveMatcher = picomatch(positivePatterns, { bash: true, dot: true });
-    const negativeMatcher = picomatch(negativePatterns, { bash: true, dot: true });
+    const positiveMatcher = picomatch(positivePatterns, {
+      bash: true,
+      dot: true,
+    });
+    const negativeMatcher = picomatch(negativePatterns, {
+      bash: true,
+      dot: true,
+    });
 
     const isPositiveMatch = positiveMatcher(relativePath);
     const isNegativeMatch = negativeMatcher(relativePath);
@@ -39,7 +48,13 @@ export async function isFileIgnored(relativePath: string): Promise<boolean> {
   }
 }
 
-export async function replaceLines(filePath: string, newContent: string, startLine?: number, endLine?: number, encoding: BufferEncoding = 'utf8') {
+export async function replaceLines(
+  filePath: string,
+  newContent: string,
+  startLine?: number,
+  endLine?: number,
+  encoding: BufferEncoding = 'utf8',
+) {
   try {
     // 1. 读取文件内容
     const data = await fs.readFile(filePath, encoding);
@@ -47,7 +62,7 @@ export async function replaceLines(filePath: string, newContent: string, startLi
     // 2. 按行分割
     let lines = data.split(/\r?\n/); // 使用正则表达式以支持不同操作系统的换行符
 
-    // 行号通常从1开始，而数组索引从0开始，因此需要调整  
+    // 行号通常从1开始，而数组索引从0开始，因此需要调整
     const startIndex = startLine ? startLine - 1 : 0;
     const endIndex = endLine ? endLine - 1 : lines.length;
 
@@ -68,7 +83,6 @@ export async function replaceLines(filePath: string, newContent: string, startLi
 
     // 5. 写回文件
     await fs.writeFile(filePath, newFileContent, encoding);
-
   } catch (err) {
     console.error('处理文件时发生错误:', err);
   }
@@ -82,7 +96,11 @@ export async function replaceLines(filePath: string, newContent: string, startLi
  * @returns 替换后的新内容。
  * @throws {Error} 如果替换执行失败。
  */
-export function replaceInFile(originalContent: string, content: string, find?: string): string {
+export function replaceInFile(
+  originalContent: string,
+  content: string,
+  find?: string,
+): string {
   let newContent = content;
 
   // 如果有 find，则替换；否则直接用 content
@@ -97,7 +115,9 @@ export function replaceInFile(originalContent: string, content: string, find?: s
     }
 
     if (matchCount > 1) {
-      throw new Error(`找到多个匹配项: ${JSON.stringify(adaptedFind)}，请指定更具体的匹配模式`);
+      throw new Error(
+        `找到多个匹配项: ${JSON.stringify(adaptedFind)}，请指定更具体的匹配模式`,
+      );
     }
 
     newContent = originalContent.replace(adaptedFind, replacementString);
@@ -106,7 +126,10 @@ export function replaceInFile(originalContent: string, content: string, find?: s
   return newContent;
 }
 
-export function computeFindMatchCount(originalContent: string, find: string): number {
+export function computeFindMatchCount(
+  originalContent: string,
+  find: string,
+): number {
   const lineEnding = originalContent.includes('\r\n') ? '\r\n' : '\n';
   const adaptedFind = find.replace(/(?<!\r)\n/g, lineEnding);
   return originalContent.split(adaptedFind).length - 1;
@@ -114,7 +137,14 @@ export function computeFindMatchCount(originalContent: string, find: string): nu
 
 export function extractKeywordsFromPrompt(prompt: string): string[] {
   // 简单提取关键词：分割单词，过滤短词和常见词
-  const words = prompt.toLowerCase().split(/\s+/).filter(w => w.length > 3 && !['the', 'and', 'for', 'with', 'this', 'that'].includes(w));
+  const words = prompt
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(
+      (w) =>
+        w.length > 3 &&
+        !['the', 'and', 'for', 'with', 'this', 'that'].includes(w),
+    );
   return [...new Set(words)]; // 去重
 }
 
@@ -151,7 +181,9 @@ export async function getProjectOverview(): Promise<string> {
   return overview;
 }
 
-export async function searchProject(keywords: string[]): Promise<FileContextItem[]> {
+export async function searchProject(
+  keywords: string[],
+): Promise<FileContextItem[]> {
   if (keywords.length === 0) return [];
   const rootDir = process.cwd();
   const items: FileContextItem[] = [];
@@ -170,11 +202,11 @@ export async function searchProject(keywords: string[]): Promise<FileContextItem
             const relativePath = path.relative(rootDir, fullPath);
             if (await isFileIgnored(relativePath)) continue;
             const content = await fs.readFile(fullPath, 'utf-8');
-            const hasMatch = keywords.some(kw => content.includes(kw));
+            const hasMatch = keywords.some((kw) => content.includes(kw));
             if (hasMatch) {
               items.push({
                 path: relativePath,
-                comment: `匹配关键词: ${keywords.slice(0,2).join(', ')}${keywords.length > 2 ? ' 等' : ''}`
+                comment: `匹配关键词: ${keywords.slice(0, 2).join(', ')}${keywords.length > 2 ? ' 等' : ''}`,
               });
             }
           } catch {}
@@ -187,7 +219,9 @@ export async function searchProject(keywords: string[]): Promise<FileContextItem
   return items.slice(0, 5); // 限制返回最多5个
 }
 
-export async function validateFilePaths(items: FileContextItem[]): Promise<FileContextItem[]> {
+export async function validateFilePaths(
+  items: FileContextItem[],
+): Promise<FileContextItem[]> {
   const validItems: FileContextItem[] = [];
   for (const item of items) {
     try {
@@ -207,7 +241,11 @@ export async function validateFilePaths(items: FileContextItem[]): Promise<FileC
  * @param filePattern - 文件 glob 模式 (可选，如 '*.ts')
  * @returns 相对路径的文件数组
  */
-export async function listFilesInDirectory(dirPath: string = '.', recursive: boolean = true, filePattern?: string): Promise<string[]> {
+export async function listFilesInDirectory(
+  dirPath: string = '.',
+  recursive: boolean = true,
+  filePattern?: string,
+): Promise<string[]> {
   const rootDir = process.cwd();
   const fullDir = path.join(rootDir, dirPath);
   const files: string[] = [];
@@ -225,14 +263,21 @@ export async function listFilesInDirectory(dirPath: string = '.', recursive: boo
             await scanDir(fullPath);
           }
         } else if (entry.isFile()) {
-          if (!filePattern || entry.name.match(new RegExp(filePattern.replace(/\*/g, '.*')))) {
+          if (
+            !filePattern ||
+            entry.name.match(new RegExp(filePattern.replace(/\*/g, '.*')))
+          ) {
             if (await isFileIgnored(relativePath)) continue;
             files.push(relativePath);
           }
         }
       }
     } catch (err) {
-      console.log(CliStyle.warning(`无法读取目录 ${currentDir}: ${(err as Error).message}`));
+      console.log(
+        CliStyle.warning(
+          `无法读取目录 ${currentDir}: ${(err as Error).message}`,
+        ),
+      );
     }
   }
 
@@ -248,7 +293,12 @@ export async function listFilesInDirectory(dirPath: string = '.', recursive: boo
  * @param contextLines - 匹配前后显示的行数 (默认 0)
  * @returns FileContextItem[]，每个包含匹配范围和 comment
  */
-export async function advancedSearchFiles(searchPath: string = '.', regex: string, filePattern?: string, contextLines: number = 0): Promise<FileContextItem[]> {
+export async function advancedSearchFiles(
+  searchPath: string = '.',
+  regex: string,
+  filePattern?: string,
+  contextLines: number = 0,
+): Promise<FileContextItem[]> {
   const rootDir = process.cwd();
   const fullSearchPath = path.join(rootDir, searchPath);
   const results: FileContextItem[] = [];
@@ -265,7 +315,11 @@ export async function advancedSearchFiles(searchPath: string = '.', regex: strin
           if (entry.name === 'node_modules' || entry.name === '.git') continue;
           await searchInDir(fullPath);
         } else if (entry.isFile()) {
-          if (filePattern && !entry.name.match(new RegExp(filePattern.replace(/\*/g, '.*')))) continue;
+          if (
+            filePattern &&
+            !entry.name.match(new RegExp(filePattern.replace(/\*/g, '.*')))
+          )
+            continue;
 
           const relativePath = path.relative(rootDir, fullPath);
           if (await isFileIgnored(relativePath)) continue;
@@ -274,13 +328,15 @@ export async function advancedSearchFiles(searchPath: string = '.', regex: strin
             const content = await fs.readFile(fullPath, 'utf-8');
             const lines = content.split(/\r?\n/);
             let match: RegExpExecArray | null;
-            const matchedRanges: {start: number, end: number}[] = [];
+            const matchedRanges: { start: number; end: number }[] = [];
 
             while ((match = re.exec(content)) !== null) {
-              const matchLine = content.substring(0, match.index).split(/\r?\n/).length;
+              const matchLine = content
+                .substring(0, match.index)
+                .split(/\r?\n/).length;
               const start = Math.max(1, matchLine - contextLines);
               const end = Math.min(lines.length, matchLine + contextLines);
-              matchedRanges.push({start, end});
+              matchedRanges.push({ start, end });
             }
 
             if (matchedRanges.length > 0) {
@@ -290,7 +346,7 @@ export async function advancedSearchFiles(searchPath: string = '.', regex: strin
                 path: relativePath,
                 start: range.start,
                 end: range.end,
-                comment: `匹配 '${regex}' 在行 ${range.start}-${range.end}`
+                comment: `匹配 '${regex}' 在行 ${range.start}-${range.end}`,
               });
             }
           } catch (err) {
@@ -309,7 +365,10 @@ export async function advancedSearchFiles(searchPath: string = '.', regex: strin
  * @param filePath 文件路径
  * @param content 文件内容
  */
-export async function createFile(filePath: string, content: string): Promise<void> {
+export async function createFile(
+  filePath: string,
+  content: string,
+): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content, 'utf-8');
 }
@@ -320,7 +379,11 @@ export async function createFile(filePath: string, content: string): Promise<voi
  * @param content 替换内容
  * @param find 要查找的字符串（可选，如果未提供则替换整个内容）
  */
-export async function writeFileWithReplace(filePath: string, content: string, find?: string): Promise<void> {
+export async function writeFileWithReplace(
+  filePath: string,
+  content: string,
+  find?: string,
+): Promise<void> {
   const originalContent = await fs.readFile(filePath, 'utf-8');
   const newContent = replaceInFile(originalContent, content, find);
   await fs.writeFile(filePath, newContent, 'utf-8');
@@ -331,7 +394,10 @@ export async function writeFileWithReplace(filePath: string, content: string, fi
  * @param oldPath 旧路径
  * @param newPath 新路径
  */
-export async function moveFile(oldPath: string, newPath: string): Promise<void> {
+export async function moveFile(
+  oldPath: string,
+  newPath: string,
+): Promise<void> {
   await fs.access(oldPath);
   await fs.mkdir(path.dirname(newPath), { recursive: true });
   await fs.rename(oldPath, newPath);

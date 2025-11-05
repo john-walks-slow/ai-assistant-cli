@@ -19,14 +19,20 @@ export async function listTemplates(): Promise<void> {
 
     console.log(CliStyle.info('\n--- 可用的提示模板 ---'));
     if (templates.length === 0) {
-      console.log(CliStyle.muted(`未找到任何模板。通过编辑 ${CliStyle.filePath(getConfigFile())} 添加模板。`));
+      console.log(
+        CliStyle.muted(
+          `未找到任何模板。通过编辑 ${CliStyle.filePath(getConfigFile())} 添加模板。`,
+        ),
+      );
     } else {
       templates.forEach((template, index) => {
         console.log(`${index + 1}. ${CliStyle.filePath(template.name)}`);
         if (template.description) {
           console.log(`   描述: ${CliStyle.muted(template.description)}`);
         }
-        console.log(`   模板: ${CliStyle.muted(template.template.substring(0, 70) + (template.template.length > 70 ? '...' : ''))}`);
+        console.log(
+          `   模板: ${CliStyle.muted(template.template.substring(0, 70) + (template.template.length > 70 ? '...' : ''))}`,
+        );
         console.log();
       });
     }
@@ -47,7 +53,9 @@ export async function showTemplate(templateName: string): Promise<void> {
     const template = config.templates?.find((t) => t.name === templateName);
 
     if (!template) {
-      console.error(CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`));
+      console.error(
+        CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`),
+      );
       process.exit(1);
     }
 
@@ -69,13 +77,24 @@ export async function showTemplate(templateName: string): Promise<void> {
  * @param files - 作为上下文的文件列表。
  * @param options - 包含用户输入、选择和自定义占位符值的选项。
  */
-export async function applyTemplate(templateName: string, files: string[], options: { input?: string, selection?: string, set?: string[], autoApply?: boolean; }): Promise<void> {
+export async function applyTemplate(
+  templateName: string,
+  files: string[],
+  options: {
+    input?: string;
+    selection?: string;
+    set?: string[];
+    autoApply?: boolean;
+  },
+): Promise<void> {
   try {
     const config = await loadConfig();
     const template = config.templates?.find((t) => t.name === templateName);
 
     if (!template) {
-      console.error(CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`));
+      console.error(
+        CliStyle.error(`错误: 找不到名为 '${templateName}' 的模板。`),
+      );
       process.exit(1);
     }
 
@@ -84,7 +103,8 @@ export async function applyTemplate(templateName: string, files: string[], optio
 
     // 处理预定义占位符
     if (template.template.includes('{{fileName}}')) {
-      placeholderValues.fileName = files.length > 0 ? path.basename(files[0]) : '';
+      placeholderValues.fileName =
+        files.length > 0 ? path.basename(files[0]) : '';
     }
 
     // 处理来自 CLI 选项的占位符
@@ -101,7 +121,11 @@ export async function applyTemplate(templateName: string, files: string[], optio
       if (parts.length === 2) {
         placeholderValues[parts[0].trim()] = parts[1].trim();
       } else {
-        console.warn(CliStyle.warning(`警告: 无效的 --set 参数格式 '${item}'。应为 'key=value'。`));
+        console.warn(
+          CliStyle.warning(
+            `警告: 无效的 --set 参数格式 '${item}'。应为 'key=value'。`,
+          ),
+        );
       }
     });
 
@@ -131,16 +155,26 @@ export async function applyTemplate(templateName: string, files: string[], optio
 
     // 替换模板中的所有占位符
     expandedPrompt = expandedPrompt.replace(PLACEHOLDER_REGEX, (match, key) => {
-      return placeholderValues[key] !== undefined ? placeholderValues[key] : match; // 如果仍然找不到，则保留原始占位符
+      return placeholderValues[key] !== undefined
+        ? placeholderValues[key]
+        : match; // 如果仍然找不到，则保留原始占位符
     });
 
-    console.log(CliStyle.process(`\n正在应用模板 '${templateName}'。最终指令:\n`));
+    console.log(
+      CliStyle.process(`\n正在应用模板 '${templateName}'。最终指令:\n`),
+    );
     console.log(CliStyle.muted(expandedPrompt));
     console.log();
     // 调用核心处理函数
-    await processRequest(expandedPrompt, files, undefined, undefined, undefined, false, options.autoApply || false);
-
-
+    await processRequest(
+      expandedPrompt,
+      files,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      options.autoApply || false,
+    );
   } catch (error) {
     console.error(CliStyle.error(`应用模板失败: ${(error as Error).message}`));
     process.exit(1);

@@ -12,7 +12,7 @@ import { OperationValidator } from './operation-validator';
 /**
  * 类型别名，用于清晰表示局部 AI 操作。
  */
-type PartialAiOperation = Partial<AiOperation> & { [key: string]: any; };
+type PartialAiOperation = Partial<AiOperation> & { [key: string]: any };
 
 /**
  * 解析单个定界操作块的内容。
@@ -21,11 +21,12 @@ type PartialAiOperation = Partial<AiOperation> & { [key: string]: any; };
  * @returns 解析的 PartialAiOperation 对象。
  * @throws {Error} 如果块格式错误。
  */
-function parseSingleOperationBlock(blockContent: string, looseMode: boolean = false): PartialAiOperation {
+function parseSingleOperationBlock(
+  blockContent: string,
+  looseMode: boolean = false,
+): PartialAiOperation {
   const operation: PartialAiOperation = {};
   const lines = blockContent.split('\n');
-
-
 
   let currentContentKey: string | null = null; // 用于跟踪当前正在捕获的内容块的键
   let contentLines: string[] = []; // 用于存储当前内容块的行
@@ -61,10 +62,16 @@ function parseSingleOperationBlock(blockContent: string, looseMode: boolean = fa
         if (looseMode) {
           // 自动关闭上一个内容块
           operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
-          console.log(CliStyle.warning(`自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`));
+          console.log(
+            CliStyle.warning(
+              `自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`,
+            ),
+          );
           contentLines = [];
         } else {
-          throw new Error(`在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`);
+          throw new Error(
+            `在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`,
+          );
         }
       }
       // 设置当前内容块的键，例如, "LOG"
@@ -107,7 +114,11 @@ function parseSingleOperationBlock(blockContent: string, looseMode: boolean = fa
     if (looseMode) {
       // 自动关闭最后一个内容块
       operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
-      console.log(CliStyle.warning(`自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`));
+      console.log(
+        CliStyle.warning(
+          `自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`,
+        ),
+      );
     } else {
       throw new Error(`未关闭的内容块: '${currentContentKey} START'`);
     }
@@ -150,7 +161,8 @@ function findOperationBlocks(response: string): string[] {
       }
       inOperationBlock = false;
       const blockContent = currentBlock.join('\n'); // 不在这里 trim
-      if (blockContent.trim()) { // 检查是否有实际内容
+      if (blockContent.trim()) {
+        // 检查是否有实际内容
         validBlocks.push(blockContent);
       }
       currentBlock = [];
@@ -177,7 +189,11 @@ function findOperationBlocks(response: string): string[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-function parseDelimitedOperations(response: string, shouldValidate = true, looseMode: boolean = false): AiOperation[] {
+function parseDelimitedOperations(
+  response: string,
+  shouldValidate = true,
+  looseMode: boolean = false,
+): AiOperation[] {
   const blocks = findOperationBlocks(response);
   if (!blocks.length) {
     return [];
@@ -196,9 +212,11 @@ function parseDelimitedOperations(response: string, shouldValidate = true, loose
         // 验证操作
         const validation = OperationValidator.validateOperation(operation);
         if (!validation.isValid) {
-          console.log(CliStyle.warning(
-            `操作 ${i + 1} 验证失败: ${validation.errors?.join(', ') || '未知错误'}`,
-          ));
+          console.log(
+            CliStyle.warning(
+              `操作 ${i + 1} 验证失败: ${validation.errors?.join(', ') || '未知错误'}`,
+            ),
+          );
           errors++;
           continue;
         }
@@ -233,7 +251,10 @@ function parseDelimitedOperations(response: string, shouldValidate = true, loose
 function tryParseAsJson(response: string): AiOperation[] {
   const trimmed = response.trim();
   // 检查是否看起来像 JSON 数组或对象
-  if (!trimmed.startsWith('[') && !(trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+  if (
+    !trimmed.startsWith('[') &&
+    !(trimmed.startsWith('{') && trimmed.endsWith('}'))
+  ) {
     return [];
   }
 
@@ -248,12 +269,13 @@ function tryParseAsJson(response: string): AiOperation[] {
     // 验证所有操作
     const validation = OperationValidator.validateOperations(operations);
     if (!validation.isValid) {
-      throw new Error(`JSON 验证失败: ${validation.errors?.slice(0, 3).join('; ') || '未知错误'}`);
+      throw new Error(
+        `JSON 验证失败: ${validation.errors?.slice(0, 3).join('; ') || '未知错误'}`,
+      );
     }
 
     console.log(CliStyle.info(`解析到 ${operations.length} 个JSON操作`));
     return operations as AiOperation[];
-
   } catch (error) {
     // 捕获 JSON5 解析错误
     if (error instanceof SyntaxError) {
@@ -261,7 +283,9 @@ function tryParseAsJson(response: string): AiOperation[] {
       return [];
     }
     // 其他错误如验证失败则向上抛出
-    throw new Error(`JSON 解析/验证错误: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `JSON 解析/验证错误: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -271,7 +295,11 @@ function tryParseAsJson(response: string): AiOperation[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-export function parseAiResponse(response: string, shouldValidate = true, looseMode: boolean = true): AiOperation[] {
+export function parseAiResponse(
+  response: string,
+  shouldValidate = true,
+  looseMode: boolean = true,
+): AiOperation[] {
   const trimmed = response.trim();
   if (!trimmed) {
     console.log(CliStyle.warning('AI响应为空'));
@@ -286,11 +314,19 @@ export function parseAiResponse(response: string, shouldValidate = true, looseMo
     }
   } catch (error) {
     // tryParseAsJson 可能会抛出验证失败的错误，这里捕获并打印
-    console.warn(CliStyle.warning(`尝试 JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`));
+    console.warn(
+      CliStyle.warning(
+        `尝试 JSON 解析失败: ${error instanceof Error ? error.message : String(error)}`,
+      ),
+    );
   }
 
   // 回退到定界格式
-  const delimitedOps = parseDelimitedOperations(trimmed, shouldValidate, looseMode);
+  const delimitedOps = parseDelimitedOperations(
+    trimmed,
+    shouldValidate,
+    looseMode,
+  );
   if (delimitedOps.length > 0) {
     return delimitedOps;
   }
