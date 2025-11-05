@@ -106,26 +106,15 @@ export class OperationValidator {
       return { isValid: false, errors: ['创建操作缺少文件路径'] };
     }
 
+    // 检查文件是否已存在
     try {
-      // 检查目标目录是否存在
-      const dir = path.dirname(filePath);
-      await fs.access(dir);
-
-      // 检查文件是否已存在
-      try {
-        await fs.access(filePath);
-        return { isValid: false, errors: [`文件已存在: ${filePath}`] };
-      } catch {
-        // 文件不存在，这是期望的
-      }
-
-      return { isValid: true };
-    } catch (error) {
-      return {
-        isValid: false,
-        errors: [`无法访问目标目录: ${path.dirname(filePath)}`]
-      };
+      await fs.access(filePath);
+      return { isValid: false, errors: [`文件已存在: ${filePath}`] };
+    } catch {
+      // 文件不存在，这是期望的
     }
+
+    return { isValid: true };
   }
 
   /**

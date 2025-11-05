@@ -57,7 +57,7 @@ export class OperationDescriptions {
     },
     create: {
       description:
-        '创建新文件。禁止用于修改已有文件，覆写已有文件请使用 writeWithReplace。',
+        '创建新文件，如果目录不存在，会递归创建目录。禁止用于修改已有文件，覆写已有文件请使用 writeWithReplace。',
       fields: {
         type: { example: 'create' },
         filePath: {
