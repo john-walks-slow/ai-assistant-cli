@@ -40,7 +40,7 @@ export async function streamAiResponse(
   options?: {
     model?: string;
     temperature?: number;
-    onChunk?: (chunk: string) => void;
+    onChunk?: (delta: string, accumulatedResponse: string) => void;
   }
 ): Promise<string> {
   const {
@@ -94,33 +94,18 @@ export async function streamAiResponse(
 
   // 初始化响应缓冲区
   let fullResponse = '';
-  let hasStartedStreaming = false;
 
   CliStyle.printDebug('--- 开始接收流式响应 ---');
 
   // 逐个处理文本块
   for await (const delta of result.textStream) {
-    // 如果是首次接收到流数据
-    if (!hasStartedStreaming) {
-      console.log(); // 新行开始流式输出
-      hasStartedStreaming = true;
-    }
-
     // 累积响应内容
     fullResponse += delta;
 
     // 触发增量回调
     if (onChunk) {
-      onChunk(delta);
+      onChunk(delta, fullResponse);
     }
-
-    // 在命令行中即时更新收到的响应
-    process.stdout.write(delta);
-  }
-
-  // 结束流式输出
-  if (hasStartedStreaming) {
-    console.log(); // 流结束后换行
   }
 
   CliStyle.printDebug('--- AI 流式响应结束 ---');
