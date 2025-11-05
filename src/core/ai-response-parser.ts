@@ -244,10 +244,6 @@ async function parseDelimitedOperations(
     console.log(CliStyle.warning(`忽略了 ${errors} 个无效操作块`));
   }
 
-  if (operations.length > 0) {
-    console.log(CliStyle.info(`解析到 ${operations.length} 个定界操作`));
-  }
-
   return operations;
 }
 
