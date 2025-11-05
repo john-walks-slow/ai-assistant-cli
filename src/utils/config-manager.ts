@@ -22,6 +22,11 @@ export interface MaiConfig {
   model?: string;
   systemPrompt?: string; // 支持从配置文件配置系统提示词
   historyDepth?: number; // 默认历史深度，用于自动注入最近N条历史
+  autoContext?: {
+    maxRounds?: number;
+    maxFiles?: number;
+  };
+  providers?: Partial<ProvidersConfig>; // 支持自定义providers
   // Add other config fields as needed
 }
 
@@ -34,23 +39,46 @@ export const ENV_VARS = {
   MODEL: '', // Will fallback to DEFAULT_MODEL
 };
 
-/**
- * 可用的 AI 模型。
- */
-export const AVAILABLE_MODELS = [
-  'x-ai/grok-code-fast-1',
-  'qwen/qwen3-coder',
-  'qwen/qwen3-coder:free',
-  'moonshotai/kimi-k2:free',
-  'openrouter/sonoma-sky-alpha',
-  'openrouter/sonoma-dusk-alpha',
-  'google/gemini-2.5-flash',
-  'openai/gpt-4.1-mini',
-  'gemini/gemini-2.0-flash-exp:free',
-] as const;
+export type ProviderName = 'openai' | 'openrouter' | 'gemini_balance';
 
-export type ModelType = typeof AVAILABLE_MODELS[number];
-export const DEFAULT_MODEL: ModelType = 'x-ai/grok-code-fast-1';
+export interface ProviderConfig {
+  url: string;
+  models?: string[];
+  apiKeyEnv: string;
+}
+
+export type ProvidersConfig = Record<ProviderName, ProviderConfig>;
+
+export const DEFAULT_PROVIDERS: ProvidersConfig = {
+  openai: {
+    url: 'https://api.openai.com/v1/chat/completions',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
+    apiKeyEnv: 'OPENAI_API_KEY'
+  },
+  openrouter: {
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    models: [
+      'x-ai/grok-code-fast-1',
+      'qwen/qwen3-coder',
+      'qwen/qwen3-coder:free',
+      'moonshotai/kimi-k2:free',
+      'openrouter/sonoma-sky-alpha',
+      'openrouter/sonoma-dusk-alpha',
+      'google/gemini-2.5-flash',
+      'openai/gpt-4.1-mini',
+      'gemini/gemini-2.0-flash-exp:free',],
+    apiKeyEnv: 'OPENROUTER_API_KEY'
+  },
+  gemini_balance: {
+    url: 'https://gemini-balance.johnr.workers.dev/v1/chat/completions',
+    models: [
+      'gemini-2.5-flash', 'gemini-2.5-pro'
+    ],
+    apiKeyEnv: 'GEMINI_BALANCE_API_KEY'
+  }
+} as const;
+
+export const DEFAULT_MODEL: string = 'openrouter/x-ai/grok-code-fast-1';
 
 /**
  * 配置目录和文件路径。
@@ -75,6 +103,22 @@ export function getConfigFile(): string {
 }
 
 /**
+ * 解析模型字符串 'provider/modelname'，支持 modelName 包含 '/'。
+ * @param model - 模型字符串。
+ * @returns 解析结果或 null。
+ */
+export function parseModel(model: string): { provider: ProviderName; modelName: string; } | null {
+  const knownProviders: ProviderName[] = Object.keys(DEFAULT_PROVIDERS) as ProviderName[];
+  for (const provider of knownProviders) {
+    if (model.startsWith(`${provider}/`)) {
+      const modelName = model.slice(provider.length + 1);
+      return { provider, modelName };
+    }
+  }
+  return null;
+}
+
+/**
  * 缓存的配置对象。
  */
 let configCache: MaiConfig | null = null;
@@ -90,10 +134,6 @@ export async function loadConfig(): Promise<MaiConfig> {
   try {
     const content = await fs.readFile(configPath, 'utf-8');
     const parsed = JSON5.parse(content) as MaiConfig;
-    // 验证模型
-    if (parsed.model && !AVAILABLE_MODELS.includes(parsed.model as ModelType)) {
-      parsed.model = DEFAULT_MODEL; // 如果无效则回退到默认值
-    }
     configCache = parsed;
     return parsed;
   } catch (error) {
@@ -135,16 +175,47 @@ export async function saveConfig(config: MaiConfig): Promise<void> {
  * 从环境变量或默认值获取 API 端点。
  * @returns API 端点字符串。
  */
-export function getApiEndpoint(): string {
-  return process.env.MAI_API_ENDPOINT || ENV_VARS.API_ENDPOINT;
+export async function getApiEndpoint(model?: string): Promise<string> {
+  const currentModel = model || await getCurrentModel();
+  const parsed = parseModel(currentModel);
+  if (!parsed) {
+    throw new Error(`Invalid model format: ${currentModel}. Expected 'provider/modelname'.`);
+  }
+  const config = await loadConfig();
+  const providers = config.providers || {};
+  const def = DEFAULT_PROVIDERS[parsed.provider];
+  if (!def) {
+    throw new Error(`Unknown provider: ${parsed.provider}`);
+  }
+  const pconfig = providers[parsed.provider] || def;
+  return pconfig.url;
 }
 
 /**
  * 从环境变量或默认值获取 API 密钥。
  * @returns API 密钥字符串。
  */
-export function getApiKey(): string {
-  return process.env.MAI_API_KEY || ENV_VARS.API_KEY;
+export async function getApiKey(model?: string): Promise<string> {
+  const currentModel = model || await getCurrentModel();
+  const parsed = parseModel(currentModel);
+  if (!parsed) {
+    throw new Error(`Invalid model format: ${currentModel}. Expected 'provider/modelname'.`);
+  }
+  const config = await loadConfig();
+  const providers = config.providers || {};
+  const def = DEFAULT_PROVIDERS[parsed.provider];
+  if (!def) {
+    throw new Error(`Unknown provider: ${parsed.provider}`);
+  }
+  const pconfig = providers[parsed.provider] || def;
+  const key = process.env[pconfig.apiKeyEnv];
+  if (!key) {
+    if (parsed.provider === 'openrouter') {
+      return ENV_VARS.API_KEY; // 回退到默认 openrouter key
+    }
+    throw new Error(`API key not found for provider '${parsed.provider}'. Set ${pconfig.apiKeyEnv}.`);
+  }
+  return key;
 }
 
 /**
@@ -154,14 +225,20 @@ export function getApiKey(): string {
  */
 export async function getCurrentModel(): Promise<string> {
   let model = process.env.MAI_MODEL;
-  if (model && AVAILABLE_MODELS.includes(model as ModelType)) {
-    return model;
+  if (model) {
+    const available = await getAvailableModels();
+    if (available.includes(model)) {
+      return model;
+    }
   }
 
   try {
     const config = await loadConfig();
-    if (config.model && AVAILABLE_MODELS.includes(config.model as ModelType)) {
-      return config.model;
+    if (config.model) {
+      const available = await getAvailableModels();
+      if (available.includes(config.model)) {
+        return config.model;
+      }
     }
   } catch (error) {
     // 忽略配置错误
@@ -170,11 +247,35 @@ export async function getCurrentModel(): Promise<string> {
   return DEFAULT_MODEL;
 }
 
-/**
- * 在配置中设置模型，并使缓存失效。
- * @param model - 要设置的模型。
- */
-export async function setModel(model: ModelType): Promise<void> {
+  /**
+   * 获取当前模型的 provider。
+   * @returns ProviderName 或 null 如果解析失败。
+   */
+  export async function getCurrentProvider(): Promise<ProviderName | null> {
+    const currentModel = await getCurrentModel();
+    const parsed = parseModel(currentModel);
+    return parsed ? parsed.provider : null;
+  }
+
+  /**
+   * 获取当前模型的 modelName。
+   * @returns 模型名称字符串或 null 如果解析失败。
+   */
+  export async function getCurrentModelName(): Promise<string | null> {
+    const currentModel = await getCurrentModel();
+    const parsed = parseModel(currentModel);
+    return parsed ? parsed.modelName : null;
+  }
+
+  /**
+   * 在配置中设置模型，并使缓存失效。
+   * @param model - 要设置的模型。
+   */
+export async function setModel(model: string): Promise<void> {
+  const available = await getAvailableModels();
+  if (!available.includes(model)) {
+    throw new Error(`Invalid model: ${model}. Must be one of: ${available.slice(0, 5).join(', ')}...`);
+  }
   const config = await loadConfig();
   config.model = model;
   await saveConfig(config); // 保存并使缓存失效
@@ -240,7 +341,7 @@ export function resetConfigCache(): void {
  * 可配置选项的描述接口。
  */
 export interface ConfigOption {
-  key: keyof MaiConfig;
+  key: string;
   name: string;
   description?: string;
   type: 'select' | 'text' | 'number' | 'boolean';
@@ -256,16 +357,58 @@ export interface ConfigOption {
  * 这允许动态扩展配置，而无需修改 set 命令。
  * @returns ConfigOption 数组。
  */
+export async function getAvailableModels(): Promise<string[]> {
+  const config = await loadConfig();
+  const providers = config.providers || {};
+  const allModels: string[] = [];
+  for (const [prov, def] of Object.entries(DEFAULT_PROVIDERS)) {
+    const pconfig = providers[prov as ProviderName] || def;
+    const models = pconfig.models || def.models || [];
+    for (const m of models) {
+      allModels.push(`${prov}/${m}`);
+    }
+  }
+  return allModels;
+}
+
+export async function getAutoContextConfig(): Promise<{ maxRounds: number; maxFiles: number; }> {
+  try {
+    const config = await loadConfig();
+    return {
+      maxRounds: config.autoContext?.maxRounds || 10,
+      maxFiles: config.autoContext?.maxFiles || 20,
+    };
+  } catch (error) {
+    // 忽略配置错误，返回默认值
+    return { maxRounds: 10, maxFiles: 20 };
+  }
+}
+
+export async function setAutoContextMaxRounds(rounds: number): Promise<void> {
+  const config = await loadConfig();
+  if (!config.autoContext) config.autoContext = {};
+  config.autoContext.maxRounds = rounds;
+  await saveConfig(config);
+}
+
+export async function setAutoContextMaxFiles(files: number): Promise<void> {
+  const config = await loadConfig();
+  if (!config.autoContext) config.autoContext = {};
+  config.autoContext.maxFiles = files;
+  await saveConfig(config);
+}
+
 export async function getConfigurableOptions(): Promise<ConfigOption[]> {
+  const availableModels = await getAvailableModels();
   const options: ConfigOption[] = [
     {
       key: 'model',
       name: 'AI 模型',
       description: '选择使用的 AI 模型',
       type: 'select',
-      options: [...AVAILABLE_MODELS],
+      options: availableModels,
       getter: getCurrentModel,
-      setter: (model: string) => setModel(model as ModelType),
+      setter: setModel,
     },
     {
       key: 'systemPrompt',
@@ -284,6 +427,26 @@ export async function getConfigurableOptions(): Promise<ConfigOption[]> {
       max: 50,
       getter: getHistoryDepth,
       setter: setHistoryDepth,
+    },
+    {
+      key: 'autoContext.maxRounds',
+      name: '自动上下文轮次上限',
+      description: 'Auto-Context 最大迭代轮次 (1-5)',
+      type: 'number',
+      min: 1,
+      max: 5,
+      getter: async () => (await getAutoContextConfig()).maxRounds,
+      setter: (rounds: number) => setAutoContextMaxRounds(rounds),
+    },
+    {
+      key: 'autoContext.maxFiles',
+      name: '自动上下文文件上限',
+      description: 'Auto-Context 最大文件数量 (1-20)',
+      type: 'number',
+      min: 1,
+      max: 20,
+      getter: async () => (await getAutoContextConfig()).maxFiles,
+      setter: (files: number) => setAutoContextMaxFiles(files),
     },
     // 未来可在此添加更多选项，如 templates 等
   ];

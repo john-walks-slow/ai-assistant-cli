@@ -5,7 +5,7 @@ import inquirer from 'inquirer';
 
 import { CliStyle } from '../utils/cli-style';
 import { OperationValidator } from './operation-definitions';
-import { replaceLines, replaceInFile } from '../utils/file-utils';
+import { replaceLines, replaceInFile, createFile, updateFileWithReplacement, moveFile, deleteFile } from '../utils/file-utils';
 import { FileOperation, AiOperation } from './operation-schema';
 
 
@@ -63,24 +63,18 @@ export async function executePlan(operations: FileOperation[], planDescription: 
       // 执行具体操作
       switch (op.type) {
         case 'create':
-          await fs.mkdir(path.dirname(op.filePath), { recursive: true });
-          await fs.writeFile(op.filePath, op.content, 'utf-8');
+          await createFile(op.filePath, op.content);
           break;
         case 'replaceInFile':
-          // Read the file's original content, preserving its line endings (CRLF/LF).
-          const originalContent = await fs.readFile(op.filePath, 'utf-8');
-          const newContent = replaceInFile(originalContent, op.content, op.find);
-          await fs.writeFile(op.filePath, newContent, 'utf-8');
+          await updateFileWithReplacement(op.filePath, op.content, op.find);
           break;
 
-        case 'rename':
-          await fs.access(op.oldPath);
-          await fs.mkdir(path.dirname(op.newPath), { recursive: true });
-          await fs.rename(op.oldPath, op.newPath);
+        case 'move':
+          await moveFile(op.oldPath, op.newPath);
           break;
 
         case 'delete':
-          await fs.unlink(op.filePath);
+          await deleteFile(op.filePath);
           break;
 
         default:
@@ -96,7 +90,7 @@ export async function executePlan(operations: FileOperation[], planDescription: 
       executionResults.push(result);
       failedOps++;
 
-      console.error(CliStyle.error(`\n  执行失败: ${JSON.stringify({ type: op.type, filePath: op.type === 'rename' ? op.newPath : op.filePath })}`));
+      console.error(CliStyle.error(`\n  执行失败: ${JSON.stringify({ type: op.type, filePath: op.type === 'move' ? op.newPath : op.filePath })}`));
       console.error(CliStyle.error(`    错误: ${errorMessage}`));
       console.log(CliStyle.warning('停止执行剩余操作。'));
     }

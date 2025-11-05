@@ -1,7 +1,15 @@
 import * as fs from 'fs/promises';
 import { glob } from 'glob';
 import { CliStyle } from '../utils/cli-style';
+import { startDelimiter, endDelimiter } from './operation-definitions';
 
+export interface FileContextItem {
+  path: string;
+  content?: string;
+  summary?: string;
+  start?: number;
+  end?: number;
+}
 /**
  * 读取指定文件的内容并将其格式化为上下文。
  * 支持文件路径中的 glob 模式以包含多个文件。
@@ -57,7 +65,7 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
     }
   }
   // 构建 items 数组
-  const items: Array<{ path: string; start?: number; end?: number; summary?: string; }> = [];
+  const items: FileContextItem[] = [];
 
   for (const [file, ranges] of fileRanges.entries()) {
     if (ranges.length === 0) continue;
@@ -102,7 +110,7 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
 * @param items - 包含文件路径（不支持 glob）、行号范围（可选）和 summary（可选）的对象数组。
 * @returns 格式化的上下文字符串。
 */
-export async function formatFileContexts(items: Array<{ path: string; start?: number; end?: number; summary?: string; }>): Promise<string> {
+export async function formatFileContexts(items: FileContextItem[]): Promise<string> {
   const contents: string[] = [];
 
   for (const item of items) {
@@ -150,11 +158,14 @@ export async function formatFileContexts(items: Array<{ path: string; start?: nu
       ).join('\n');
 
       const rangeDesc = item.start !== undefined ? ` (lines ${item.start}-${item.end ?? 'end'})` : '';
-      let fileBlock = `--- FILE: ${item.path}${rangeDesc} ---`;
-      if (item.summary) {
-        fileBlock += `\nSummary: ${item.summary}`;
+      let fileBlock = `${startDelimiter('FILE')}\npath: ${item.path}`;
+      if (rangeDesc) {
+        fileBlock += `range: \n${rangeDesc}`;
       }
-      fileBlock += `\n${numberedContent}`;
+      if (item.summary) {
+        fileBlock += `\nsummary: ${item.summary}`;
+      }
+      fileBlock += `\n${numberedContent}\n${endDelimiter('FILE')}`;
       contents.push(fileBlock);
     } catch (error) {
       console.log(CliStyle.warning(`警告: 无法读取文件 ${item.path}，跳过。错误: ${(error as Error).message}`));

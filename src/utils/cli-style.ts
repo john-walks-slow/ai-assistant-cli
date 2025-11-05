@@ -62,6 +62,36 @@ export class CliStyle {
   }
 
   /**
+   * 返回灰色的调试消息，带 [DEBUG] 前缀。
+   * @param message - 要设置样式的调试消息。
+   */
+  static debug(message: string): string {
+    return chalk.gray(`[DEBUG] ${message}`);
+  }
+
+  private static enableDebug = process.env.IS_MAI_DEBUG?.toLowerCase() === 'true';
+
+  /**
+   * 打印调试消息，如果调试启用。
+   * @param message - 调试消息。
+   */
+  static printDebug(message: string): void {
+    if (this.enableDebug) {
+      console.log(this.debug(message));
+    }
+  }
+
+  /**
+   * 打印调试内容（使用 muted 样式），如果调试启用。
+   * @param content - 内容字符串。
+   */
+  static printDebugContent(content: string): void {
+    if (this.enableDebug) {
+      console.log(this.muted(content));
+    }
+  }
+
+  /**
    * 返回洋红色斜体的思考消息。
    * @param message - 要设置样式的消息。
    */

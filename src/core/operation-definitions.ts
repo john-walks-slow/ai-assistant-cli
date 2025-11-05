@@ -1,6 +1,8 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { findGitRoot } from '../utils/git-helper';
+import { isFileIgnored, computeFindMatchCount } from '../utils/file-utils';
 import {
   AiOperation,
   OperationType,
@@ -14,15 +16,15 @@ import {
  * 操作分隔符常量。
  */
 export function startDelimiter(identifier: string = 'OPERATION') {
-  return `--- ${identifier} START ---`;
+  return `--- ${identifier} start ---`;
 }
 export function endDelimiter(identifier: string = 'OPERATION') {
-  return `--- ${identifier} END ---`;
+  return `--- ${identifier} end ---`;
 }
 // 正则表达式确保定界符占据一整行（忽略前后空格）
 // ^([A-Z0-9_]+)_START$ 匹配以 _START 结尾的完整字符串，并捕获前面的部分
-export const startDelimiterRegex = /^--- ([A-Za-z0-9_]+) START ---$/;
-export const endDelimiterRegex = /^--- ([A-Za-z0-9_]+) END ---$/;
+export const startDelimiterRegex = /^--- ([A-Za-z0-9_]+) start ---$/;
+export const endDelimiterRegex = /^--- ([A-Za-z0-9_]+) end ---$/;
 
 /**
  * 使用 Zod 的简化操作验证工具。
@@ -59,8 +61,8 @@ export class OperationValidator {
           return await this.validateCreateReachability(op);
         case 'replaceInFile':
           return await this.validateReplaceInFileReachability(op);
-        case 'rename':
-          return await this.validateRenameReachability(op);
+        case 'move':
+          return await this.validateMoveReachability(op);
         case 'delete':
           return await this.validateDeleteReachability(op);
         default:
@@ -137,6 +139,12 @@ export class OperationValidator {
     }
 
     try {
+      const root = await findGitRoot();
+      const relativePath = path.relative(root, filePath);
+      if (await isFileIgnored(relativePath)) {
+        return { isValid: false, errors: ['文件被 .gitignore 忽略，无法执行 replaceInFile 操作。'] };
+      }
+
       // 检查文件是否存在
       await fs.access(filePath);
 
@@ -144,7 +152,7 @@ export class OperationValidator {
       const find = (op as any).find;
       if (find) {
         const content = await fs.readFile(filePath, 'utf-8');
-        const findCount = (content.match(new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+        const findCount = computeFindMatchCount(content, find);
         if (findCount === 0) {
           return { isValid: false, errors: [`在文件中找不到要替换的文本: ${filePath}`] };
         } else if (findCount > 1) {
@@ -159,40 +167,40 @@ export class OperationValidator {
   }
 
   /**
-   * 验证重命名操作的可达性。
-   */
-  private static async validateRenameReachability(op: FileOperation): Promise<ValidationResult> {
-    const oldPath = (op as any).oldPath;
-    const newPath = (op as any).newPath;
-
-    if (!oldPath || !newPath) {
-      return { isValid: false, errors: ['重命名操作缺少源路径或目标路径'] };
-    }
-
-    try {
-      // 检查源文件是否存在
-      await fs.access(oldPath);
-
-      // 检查目标路径是否可用
-      const newDir = path.dirname(newPath);
-      await fs.access(newDir);
-
-      // 检查目标文件是否已存在
-      try {
-        await fs.access(newPath);
-        return { isValid: false, errors: [`目标文件已存在: ${newPath}`] };
-      } catch {
-        // 目标文件不存在，这是期望的
-      }
-
-      return { isValid: true };
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('源文件')) {
-        return { isValid: false, errors: [`源文件不存在: ${oldPath}`] };
-      }
-      return { isValid: false, errors: [`无法访问目标目录: ${path.dirname(newPath)}`] };
-    }
-  }
+    * 验证移动操作的可达性。
+    */
+   private static async validateMoveReachability(op: FileOperation): Promise<ValidationResult> {
+     const oldPath = (op as any).oldPath;
+     const newPath = (op as any).newPath;
+  
+     if (!oldPath || !newPath) {
+       return { isValid: false, errors: ['移动操作缺少源路径或目标路径'] };
+     }
+  
+     try {
+       // 检查源文件是否存在
+       await fs.access(oldPath);
+  
+       // 检查目标路径是否可用
+       const newDir = path.dirname(newPath);
+       await fs.access(newDir);
+  
+       // 检查目标文件是否已存在
+       try {
+         await fs.access(newPath);
+         return { isValid: false, errors: [`目标文件已存在: ${newPath}`] };
+       } catch {
+         // 目标文件不存在，这是期望的
+       }
+  
+       return { isValid: true };
+     } catch (error) {
+       if (error instanceof Error && error.message.includes('源文件')) {
+         return { isValid: false, errors: [`源文件不存在: ${oldPath}`] };
+       }
+       return { isValid: false, errors: [`无法访问目标目录: ${path.dirname(newPath)}`] };
+     }
+   }
 
   /**
    * 验证删除操作的可达性。
@@ -264,7 +272,7 @@ export class OperationDescriptions {
     },
 
     replaceInFile: {
-      description: '使用文本替换工具编辑文件内容。',
+      description: '使用文本替换工具编辑文件内容。find 参数留空时覆写整个文件。',
       fields: {
         type: { example: 'replaceInFile' },
         filePath: {
@@ -276,7 +284,7 @@ export class OperationDescriptions {
         },
         find: {
           example: 'const NewComponent = () => <div>Helo World</div>',
-          description: `要查找并替换的目标文本。不支持通配符和正则表达式，对大小写敏感。*必须保证当前文件中有且仅有一个匹配项。*如果留空，则替换整个文件的内容。`,
+          description: `要查找并替换的目标文本。不支持通配符和正则表达式。请勿包含行号。*必须保证当前文件中有且仅有一个匹配项。*如果留空，则替换整个文件的内容。`,
           optional: true,
           isBlock: true
         },
@@ -285,7 +293,7 @@ export class OperationDescriptions {
           description: '替换为的新内容',
           isBlock: true,
         },
-
+    
       },
     },
     // edit: {
@@ -316,20 +324,20 @@ export class OperationDescriptions {
     //     }
     //   }
     // },
-    rename: {
-      description: '重命名现有文件。',
+    move: {
+      description: '移动现有文件。',
       fields: {
-        type: { example: 'rename' },
+        type: { example: 'move' },
         oldPath: {
-          description: '原始文件路径',
+          description: '源文件路径',
           example: 'path/to/old.ts',
         },
         newPath: {
-          description: '新文件路径',
+          description: '目标文件路径',
           example: 'path/to/new.ts',
         },
         comment: {
-          example: '将文件重命名以更好地反映其功能。',
+          example: '将文件移动到新位置。',
           optional: true
         },
       },
@@ -364,7 +372,7 @@ export class OperationDescriptions {
         description += `${config.description}\n\n`;
       }
 
-      description += '【示例】\n';
+      description += '【参数示例】\n';
       description += `${startDelimiter()}\n`;
 
       // 遍历操作的字段并生成描述
