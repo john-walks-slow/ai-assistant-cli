@@ -169,7 +169,7 @@ mai <prompt> [files...] [options]
 
 #### `mai history`
 
-管理历史记录。
+管理历史记录。(~/.mai/history.json)
 
 - `list [-f, --file-only]`: 列出所有可用历史记录。`-f` 只显示包含文件操作的记录
 - `undo [id|name|~n]`: 撤销指定的历史记录所做的更改，而不删除该历史记录。默认为最近一次历史（`~1`）
@@ -186,7 +186,7 @@ mai <prompt> [files...] [options]
 
 #### `mai config`
 
-管理和查看配置项。
+管理和查看配置项。(~/.mai/config.json5)
 
 - `list`: 列出当前配置
 - `set <key> <value>`: 直接设置配置项（如 `mai config set model x-ai/grok-code-fast-1`）
