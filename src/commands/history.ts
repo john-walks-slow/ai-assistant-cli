@@ -1,28 +1,18 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import inquirer from 'inquirer';
 
 import { CliStyle } from '../utils/cli-style';
-import { findGitRoot } from '../utils/file-utils';
-import { executePlan } from '../core/plan-executor';
 import { reviewAndExecutePlan } from '../core/plan-reviewer';
 import { AiOperation, FileOperation } from '../core/operation-schema';
 import { startDelimiter, endDelimiter } from '../core/operation-definitions';
+import * as os from 'os';
+import { MAI_CONFIG_DIR_NAME, HISTORY_FILE_NAME } from '../constants/mai-data';
 
 /**
- * 历史记录文件的路径。
+ * 获取历史记录文件路径。
  */
-export let GLOBAL_HISTORY_FILE: string | undefined = undefined;
-
-/**
- * 初始化历史记录文件路径。
- * 查找 Git 仓库根目录，并在其中创建 .mai-history.json 文件。
- */
-async function initializeHistoryFile(): Promise<void> {
-  if (!GLOBAL_HISTORY_FILE) {
-    const gitRoot = await findGitRoot();
-    GLOBAL_HISTORY_FILE = path.join(gitRoot, '.mai-history.json');
-  }
+export function getHistoryFile() {
+  return path.join(os.homedir(), MAI_CONFIG_DIR_NAME, HISTORY_FILE_NAME);
 }
 
 /**
@@ -81,9 +71,8 @@ export function parseIdOrName(
  * @returns 历史记录条目数组。
  */
 export async function loadHistory(): Promise<HistoryEntry[]> {
-  await initializeHistoryFile();
   try {
-    const data = await fs.readFile(GLOBAL_HISTORY_FILE!, 'utf-8');
+    const data = await fs.readFile(getHistoryFile(), 'utf-8');
     return JSON.parse(data) as HistoryEntry[];
   } catch {
     return [];
@@ -95,9 +84,8 @@ export async function loadHistory(): Promise<HistoryEntry[]> {
  * @param history - 要保存的历史记录数组。
  */
 export async function saveHistory(history: HistoryEntry[]): Promise<void> {
-  await initializeHistoryFile();
   await fs.writeFile(
-    GLOBAL_HISTORY_FILE!,
+    getHistoryFile(),
     JSON.stringify(history, null, 2),
     'utf-8'
   );
@@ -162,8 +150,8 @@ export async function listHistory(
       entry.applied === undefined
         ? ''
         : entry.applied
-          ? ' (已应用)'
-          : ' (未应用)';
+        ? ' (已应用)'
+        : ' (未应用)';
     console.log(
       `${CliStyle.info(
         `${
