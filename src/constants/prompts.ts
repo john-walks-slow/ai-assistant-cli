@@ -22,6 +22,18 @@ export function constructSystemPrompt(): string {
 - 确保所有块都正确关闭。
 - **只输出操作块序列，不输出其他任何文本。**
 
+**文件上下文：**
+- 用户可能提供文件上下文，以 --- FILE: path (lines start-end) --- 格式出现。
+- 内容带有行号标记，如 "  1|代码行内容"。
+- 使用这些行号精确引用和修改代码，例如在 replaceInFile 的 find 和 content 中引用 "第 10 行" 或具体行号。
+- 如果无范围，则为整个文件。
+
+**历史上下文：**
+- 用户可能提供历史上下文，以 --- HISTORY: id --- 格式出现。
+- 每个历史块包含之前的 prompt 和 operations 序列。
+- 使用这些历史来理解先前更改，并在新操作中引用、构建或修改相关文件。
+- operations 以结构化格式呈现，包括 type、filePath、content 等；引用时使用描述性引用如 "先前操作中的创建文件 src/utils/helper.ts"。
+
 **操作块定义：**
 ${operationsDescription}
 
@@ -40,19 +52,25 @@ ${operationsDescription}
 }
 
 /**
- * 构建用户的AI指令，包括用户的请求和可选文件上下文。
+ * 构建用户的AI指令，包括用户的请求、可选文件上下文和可选历史上下文。
  * @param userPrompt - 用户的请求。
- * @param context - 可选的文件上下文字符串。
+ * @param fileContext - 可选的文件上下文字符串。
+ * @param historyContext - 可选的历史上下文字符串。
  * @returns 格式化后的用户AI指令字符串。
  */
-export function createUserPrompt(userPrompt: string, context?: string): string {
+export function createUserPrompt(userPrompt: string, fileContext?: string, historyContext?: string): string {
   // 如果提供了文件上下文，将其格式化为一个块
-  const contextBlock = context
-    ? `\n${startDelimiter('FILE_CONTEXT')}\n${context}\n${endDelimiter('FILE_CONTEXT')}`
+  const fileBlock = fileContext
+    ? `\n${startDelimiter('FILE CONTEXT')}\n${fileContext}\n${endDelimiter('FILE CONTEXT')}`
+    : '';
+
+  // 如果提供了历史上下文，将其格式化为一个块
+  const historyBlock = historyContext
+    ? `\n${startDelimiter('HISTORY CONTEXT')}\n${historyContext}\n${endDelimiter('HISTORY CONTEXT')}`
     : '';
 
   // 将用户请求和上下文组合成最终的用户指令
-  return `USER REQUEST: "${userPrompt}"\n${contextBlock}`;
+  return `USER REQUEST: "${userPrompt}"${fileBlock}${historyBlock}`;
 }
 
 // console.log(constructSystemPrompt());
