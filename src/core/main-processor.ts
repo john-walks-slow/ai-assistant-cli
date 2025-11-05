@@ -29,6 +29,7 @@ import {
 } from '../commands/history';
 import { getHistoryDepth } from '../utils/config-manager';
 import { prepareAutoContext } from './context-agent';
+import { ModelMessage } from 'ai';
 
 /**
  * 处理用户请求的主调度函数。
@@ -55,7 +56,7 @@ export async function processRequest(
     return;
   }
 
-  let historyMessages: { role: string; content: string }[] = [];
+  let historyMessages: ModelMessage[] = [];
 
   let fileContext = '';
   let actualUserPromptContent = '';
@@ -192,14 +193,14 @@ export async function processRequest(
   let aiResponse: string;
   const startTime = Date.now();
   try {
-    const messages = [
+    const messages: ModelMessage[] = [
       ...(actualSystemPrompt
         ? [{ role: 'system', content: actualSystemPrompt }]
         : []),
       ...historyMessages,
       { role: 'user', content: actualUserPromptContent },
       ...(fileContext ? [{ role: 'user', content: fileContext }] : [])
-    ];
+    ] as ModelMessage[];
 
     // 使用流式响应，在命令行中即时更新显示
     aiResponse = await streamAiResponse(messages, {
