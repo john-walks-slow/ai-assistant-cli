@@ -7,7 +7,7 @@ import {
   getProjectOverview,
   validateFilePaths
 } from '../utils/file-utils';
-import { getAiResponse } from '../utils/network';
+import { getAiResponse, streamAiResponse } from '../utils/network';
 import { FileContextItem } from './file-context';
 
 interface AiContextSuggestion {
@@ -198,7 +198,8 @@ export async function prepareAutoContext(
 
     messages.push({ role: 'user', content: userPromptForAi });
 
-    const aiResponse = await getAiResponse(messages);
+    // 使用流式响应获得更好的用户体验
+    const aiResponse = await streamAiResponse(messages);
     console.log(
       CliStyle.debug(`AI Raw Response (Round ${round}): ${aiResponse}`)
     );
