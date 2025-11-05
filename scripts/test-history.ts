@@ -46,7 +46,7 @@ async function runTests() {
       description: '测试描述',
       timestamp: new Date().toISOString(),
       prompt: '测试提示',
-      operations: [],
+      operations: []
     };
     await appendHistory(testEntry);
     const loadedHistory = await loadHistory();
@@ -79,23 +79,23 @@ async function runTests() {
     console.log(generatedPrompt);
     assert.ok(
       generatedPrompt.includes('USER REQUEST: "redo changes"'),
-      'prompt 应包含用户请求',
+      'prompt 应包含用户请求'
     );
     assert.ok(
       generatedPrompt.includes('--- HISTORY CONTEXT ---'),
-      'prompt 应包含历史上下文块',
+      'prompt 应包含历史上下文块'
     );
     assert.ok(
       generatedPrompt.includes('mock 历史提示'),
-      'prompt 应包含历史 prompt',
+      'prompt 应包含历史 prompt'
     );
     assert.ok(
       generatedPrompt.includes('Operations:'),
-      'prompt 应包含 operations',
+      'prompt 应包含 operations'
     );
     assert.ok(
       generatedPrompt.includes('"type": "create"'),
-      'prompt 应包含 operations 细节',
+      'prompt 应包含 operations 细节'
     );
     console.log('  ✓ 通过\n');
 

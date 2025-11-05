@@ -1,7 +1,7 @@
 import {
   endDelimiter,
   OperationDescriptions,
-  startDelimiter,
+  startDelimiter
 } from '../core/operation-definitions';
 
 /**

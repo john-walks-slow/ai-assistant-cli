@@ -21,7 +21,7 @@ export async function openInEditor(content: string): Promise<string> {
       '--folder-uri',
       projectRoot,
       '--wait',
-      tempFilePath,
+      tempFilePath
     ]);
     return await fs.readFile(tempFilePath, 'utf8');
   } finally {
@@ -42,7 +42,7 @@ export async function openInEditor(content: string): Promise<string> {
 export async function showDiffInVsCode(
   originalContent: string,
   newContent: string,
-  fileNameHint?: string,
+  fileNameHint?: string
 ): Promise<string | null> {
   const tempDir = path.join(process.cwd(), '.ai-temp');
   await fs.mkdir(tempDir, { recursive: true }).catch(() => {
@@ -56,7 +56,7 @@ export async function showDiffInVsCode(
 
   const originalPath = path.join(
     tempDir,
-    `${baseName}-original-${timestamp}${extName}`,
+    `${baseName}-original-${timestamp}${extName}`
   );
   const newPath = path.join(tempDir, `${baseName}-new-${timestamp}${extName}`);
   const editor = 'code'; // 硬编码为VS Code
@@ -70,7 +70,7 @@ export async function showDiffInVsCode(
       '--diff',
       '--wait',
       originalPath,
-      newPath,
+      newPath
     ]);
 
     // 读取用户可能已修改的newPath内容
@@ -86,7 +86,7 @@ export async function showDiffInVsCode(
     }
   } catch (error) {
     console.error(
-      CliStyle.error('打开VS Code差异时出错。`code`命令是否在您的PATH中？'),
+      CliStyle.error('打开VS Code差异时出错。`code`命令是否在您的PATH中？')
     );
     console.error(CliStyle.error(String(error)));
     return null; // 发生错误时返回null
@@ -98,7 +98,7 @@ export async function showDiffInVsCode(
       }),
       fs.unlink(newPath).catch(() => {
         /* 清理时忽略错误 */
-      }),
+      })
     ]);
   }
 }
@@ -113,7 +113,7 @@ function runProcess(command: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(command, args, {
       stdio: 'inherit',
-      shell: true,
+      shell: true
     });
     childProcess.on('exit', (code) => {
       if (code === 0) {

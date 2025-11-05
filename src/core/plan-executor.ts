@@ -10,7 +10,7 @@ import {
   createFile,
   writeFileWithReplace,
   moveFile,
-  deleteFile,
+  deleteFile
 } from '../utils/file-utils';
 import { FileOperation, AiOperation } from './operation-schema';
 import { OperationValidator } from './operation-validator';
@@ -24,7 +24,7 @@ import { OperationValidator } from './operation-validator';
  */
 export async function executePlan(
   operations: FileOperation[],
-  planDescription: string,
+  planDescription: string
 ): Promise<{
   executionResults: Array<{
     operation: FileOperation;
@@ -61,13 +61,13 @@ export async function executePlan(
   const validation = OperationValidator.validateOperations(operations);
   if (!validation.isValid) {
     throw new Error(
-      `计划包含无效操作: ${validation.errors?.join('; ') || '未知验证错误'}`,
+      `计划包含无效操作: ${validation.errors?.join('; ') || '未知验证错误'}`
     );
   }
 
   // 创建可变操作数组以支持撤销
   const executedOperations: FileOperation[] = operations.map((op) => ({
-    ...op,
+    ...op
   }));
   const executionResults: Array<{
     operation: FileOperation;
@@ -118,8 +118,8 @@ export async function executePlan(
 
       console.error(
         CliStyle.error(
-          `\n  执行失败: ${JSON.stringify({ type: op.type, filePath: op.type === 'move' ? op.newPath : op.filePath })}`,
-        ),
+          `\n  执行失败: ${JSON.stringify({ type: op.type, filePath: op.type === 'move' ? op.newPath : op.filePath })}`
+        )
       );
       console.error(CliStyle.error(`    错误: ${errorMessage}`));
       console.log(CliStyle.warning('停止执行剩余操作。'));

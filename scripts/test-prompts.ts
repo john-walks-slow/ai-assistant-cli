@@ -1,6 +1,6 @@
 import {
   constructSystemPrompt,
-  createUserPrompt,
+  createUserPrompt
 } from '../src/constants/prompts';
 import { HistoryEntry } from '../src/commands/history';
 
@@ -11,7 +11,7 @@ const mockHistoryEntry: HistoryEntry = {
   prompt: 'test prompt',
   description: 'test description',
   operations: [],
-  aiResponse: 'test ai response',
+  aiResponse: 'test ai response'
 };
 
 // 模拟多个历史条目（最近的先）
@@ -20,9 +20,9 @@ const mockEntries: HistoryEntry[] = [
     ...mockHistoryEntry,
     id: 'old-id',
     prompt: 'old prompt',
-    aiResponse: 'old ai response',
+    aiResponse: 'old ai response'
   },
-  mockHistoryEntry, // 最近的
+  mockHistoryEntry // 最近的
 ];
 
 // 模拟文件上下文
@@ -43,14 +43,14 @@ for (const entry of reversedEntries) {
 const actualUserPromptContent = createUserPrompt(
   'test user request',
   mockFileContext,
-  '',
+  ''
 );
 
 // 模拟完整 messages 数组
 const messages = [
   { role: 'system', content: systemPrompt },
   ...historyMessages,
-  { role: 'user', content: actualUserPromptContent },
+  { role: 'user', content: actualUserPromptContent }
 ];
 
 // 测试输出

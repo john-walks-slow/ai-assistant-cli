@@ -5,53 +5,53 @@ export const OperationTypeSchema = z.enum([
   'create',
   'writeWithReplace',
   'move',
-  'delete',
+  'delete'
 ]);
 
 export const BaseOperationSchema = z.object({
   type: OperationTypeSchema,
-  comment: z.string().optional(),
+  comment: z.string().optional()
 });
 
 export const ResponseOperationSchema = BaseOperationSchema.extend({
   type: z.literal('response'),
-  content: z.string(),
+  content: z.string()
 });
 
 export const CreateOperationSchema = BaseOperationSchema.extend({
   type: z.literal('create'),
   filePath: z.string().min(1),
-  content: z.string(),
+  content: z.string()
 });
 
 export const writeWithReplaceOperationSchema = BaseOperationSchema.extend({
   type: z.literal('writeWithReplace'),
   filePath: z.string().min(1),
   find: z.string().optional(),
-  content: z.string(),
+  content: z.string()
 });
 
 export const MoveOperationSchema = BaseOperationSchema.extend({
   type: z.literal('move'),
   oldPath: z.string().min(1),
-  newPath: z.string().min(1),
+  newPath: z.string().min(1)
 });
 
 export const DeleteOperationSchema = BaseOperationSchema.extend({
   type: z.literal('delete'),
-  filePath: z.string().min(1),
+  filePath: z.string().min(1)
 });
 
 export const FileOperationSchema = z.union([
   CreateOperationSchema,
   writeWithReplaceOperationSchema,
   MoveOperationSchema,
-  DeleteOperationSchema,
+  DeleteOperationSchema
 ]);
 
 export const AiOperationSchema = z.union([
   ResponseOperationSchema,
-  FileOperationSchema,
+  FileOperationSchema
 ]);
 
 export const OperationsArraySchema = z.array(AiOperationSchema);
@@ -77,12 +77,12 @@ export function validateOperation(op: unknown): ValidationResult {
     if (error instanceof z.ZodError) {
       return {
         isValid: false,
-        errors: [error.message],
+        errors: [error.message]
       };
     }
     return {
       isValid: false,
-      errors: [String(error)],
+      errors: [String(error)]
     };
   }
 }
@@ -103,7 +103,7 @@ export function validateOperations(operations: unknown[]): ValidationResult {
       if (!result.isValid) {
         return {
           index,
-          errors: result.errors?.map((e) => `Operation ${index}: ${e}`) || [],
+          errors: result.errors?.map((e) => `Operation ${index}: ${e}`) || []
         };
       }
       return null;

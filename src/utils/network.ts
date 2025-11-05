@@ -5,7 +5,7 @@ import {
   getApiEndpoint,
   getApiKey,
   getCurrentModel,
-  getCurrentModelName,
+  getCurrentModelName
 } from './config-manager';
 
 /**
@@ -53,13 +53,13 @@ export class AxiosNetwork {
       method = 'POST',
       headers = {},
       body,
-      timeout = 300000, // 默认五分钟超时
+      timeout = 300000 // 默认五分钟超时
     } = options;
 
     // 构造请求配置
     const finalHeaders = {
       'Content-Type': 'application/json;charset=utf-8',
-      ...headers,
+      ...headers
     };
 
     const config = {
@@ -67,7 +67,7 @@ export class AxiosNetwork {
       method: method.toUpperCase(),
       headers: finalHeaders,
       data: body ? JSON.stringify(body) : undefined,
-      timeout,
+      timeout
     };
 
     try {
@@ -84,7 +84,7 @@ export class AxiosNetwork {
           ? JSON.stringify(axiosError.response.data)
           : axiosError.message;
         throw new Error(
-          `Axios request failed with status ${axiosError.response?.status || 'unknown'}: ${errorMessage}`,
+          `Axios request failed with status ${axiosError.response?.status || 'unknown'}: ${errorMessage}`
         );
       } else {
         throw new Error(`Unexpected error: ${String(error)}`);
@@ -106,12 +106,12 @@ export async function getAiResponse(
   messages: { role: string; content: string }[],
   retries = 3,
   model?: string,
-  temperature?: number,
+  temperature?: number
 ): Promise<string> {
   const modelName = model || (await getCurrentModelName()); // Use specified model or fallback to current
   const payload: any = {
     model: modelName,
-    messages,
+    messages
   };
 
   // 如果提供了temperature，则添加到payload
@@ -129,9 +129,9 @@ export async function getAiResponse(
         uri: await getApiEndpoint(model), // Use centralized getApiEndpoint with model
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${await getApiKey(model)}`, // Use centralized getApiKey with model
+          Authorization: `Bearer ${await getApiKey(model)}` // Use centralized getApiKey with model
         },
-        body: payload,
+        body: payload
       });
 
       CliStyle.printDebug('--- 原始AI响应负载 ---');
@@ -146,7 +146,7 @@ export async function getAiResponse(
       } else {
         console.error(
           '错误：AI响应格式不符合预期。',
-          JSON.stringify(aiResponse),
+          JSON.stringify(aiResponse)
         );
         throw new Error('无效的AI响应格式。');
       }
@@ -155,7 +155,7 @@ export async function getAiResponse(
         error instanceof Error ? error.message : String(error);
       console.error(
         `第 ${i + 1} 次尝试（共 ${retries} 次）失败。`,
-        errorMessage,
+        errorMessage
       );
       if (i === retries - 1) {
         console.error('最后一次尝试失败。中止。');

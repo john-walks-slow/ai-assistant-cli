@@ -79,7 +79,7 @@ export interface MaiConfig {
     files: string[] = [],
     systemPrompt?: string,
     autocontext?: boolean,
-    includeHistory?: any,
+    includeHistory?: any
   ): Promise<void> {
     let actualFiles = files;
     let extraContext = '';
@@ -87,7 +87,7 @@ export interface MaiConfig {
       const agent = new ContextAgent();
       const ctx = await agent.prepareContext(userPrompt, {
         autocontext,
-        includeHistory,
+        includeHistory
       });
       actualFiles = ctx.files.map((f) => f.path); // 传入路径
       extraContext =
@@ -108,15 +108,15 @@ export interface MaiConfig {
     .option('--autocontext', {
       type: 'boolean',
       default: false,
-      description: '启用自动上下文准备',
+      description: '启用自动上下文准备'
     })
     .option('--include-history <limit>', {
       type: 'number',
-      description: '包含最近N条历史',
+      description: '包含最近N条历史'
     })
     .option('--history-id <id>', {
       type: 'string',
-      description: '包含指定历史ID',
+      description: '包含指定历史ID'
     })
     .action(async (args) => {
       await processRequest(
@@ -124,7 +124,7 @@ export interface MaiConfig {
         [],
         undefined,
         args.autocontext,
-        args.includeHistory || args.historyId,
+        args.includeHistory || args.historyId
       );
     });
   ```
