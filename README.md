@@ -75,7 +75,7 @@ npm install -g @johnnren/mai-cli
 
 MAI 默认通过环境变量读取 API keys。
 
-> 你可以设置用逗号分割的多个 API key，MAI 会自动进行负载均衡。
+> 你可以设置用逗号分割的多个 API key，MAI 会自动进行负载均衡
 
 ```bash
 # for OpenAI models
