@@ -7,3 +7,4 @@ dist
 .git
 /package-lock.json
 .aider*
+pnpm-lock.yaml
