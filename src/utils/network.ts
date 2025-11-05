@@ -47,7 +47,7 @@ export class AxiosNetwork {
       method = 'POST',
       headers = {},
       body,
-      timeout = 60000, // 默认60秒超时
+      timeout = 300000, // 默认五分钟超时
     } = options;
 
     // 构造请求配置
@@ -85,19 +85,24 @@ export class AxiosNetwork {
 
 /**
  * 从配置的AI模型获取响应，带有重试逻辑。
- * @param prompt - 发送给AI的用户指令。
- * @param systemPrompt - 可选的系统指令。
+ * @param messages - 发送给AI的消息数组。
  * @param retries - 失败时重试次数。
- * @param debug - 是否打印原始请求负载。
+ * @param model - 可选的模型名称。
+ * @param temperature - 可选的temperature参数。
  * @returns AI响应的字符串内容。
  * @throws {Error} 如果AI请求失败。
  */
-export async function getAiResponse(messages: { role: string; content: string }[], retries = 3): Promise<string> {
-  const model = await getCurrentModelName(); // Use centralized getCurrentModel
-  const payload = {
-    model,
+export async function getAiResponse(messages: { role: string; content: string }[], retries = 3, model?: string, temperature?: number): Promise<string> {
+  const modelName = model || await getCurrentModelName(); // Use specified model or fallback to current
+  const payload: any = {
+    model: modelName,
     messages,
   };
+
+  // 如果提供了temperature，则添加到payload
+  if (temperature !== undefined) {
+    payload.temperature = temperature;
+  }
 
   CliStyle.printDebug('--- 原始AI请求负载 ---');
   CliStyle.printDebugContent(JSON.stringify(payload, null, 2));
@@ -106,12 +111,13 @@ export async function getAiResponse(messages: { role: string; content: string }[
   for (let i = 0; i < retries; i++) {
     try {
       const aiResponse: AiApiResponse = await AxiosNetwork.invoke({
-        uri: await getApiEndpoint(), // Use centralized getApiEndpoint
+        uri: await getApiEndpoint(model), // Use centralized getApiEndpoint with model
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${await getApiKey()}`, // Use centralized getApiKey
+          Authorization: `Bearer ${await getApiKey(model)}`, // Use centralized getApiKey with model
         },
         body: payload,
+
       });
 
       CliStyle.printDebug('--- 原始AI响应负载 ---');

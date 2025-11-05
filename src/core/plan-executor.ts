@@ -4,9 +4,9 @@ import inquirer from 'inquirer';
 // import ora from 'ora'; // ora 似乎未被使用，可以移除
 
 import { CliStyle } from '../utils/cli-style';
-import { OperationValidator } from './operation-definitions';
-import { replaceLines, replaceInFile, createFile, updateFileWithReplacement, moveFile, deleteFile } from '../utils/file-utils';
+import { replaceLines, replaceInFile, createFile, writeFileWithReplace, moveFile, deleteFile } from '../utils/file-utils';
 import { FileOperation, AiOperation } from './operation-schema';
+import { OperationValidator } from './operation-validator';
 
 
 /**
@@ -27,7 +27,7 @@ export async function executePlan(operations: FileOperation[], planDescription: 
   // 预加载需要备份的文件初始内容
   const filesToBackup: Set<string> = new Set();
   for (const op of operations) {
-    if (op.type === 'replaceInFile' || op.type === 'delete') {
+    if (op.type === 'writeWithReplace' || op.type === 'delete') {
       filesToBackup.add(op.filePath);
     }
   }
@@ -65,8 +65,8 @@ export async function executePlan(operations: FileOperation[], planDescription: 
         case 'create':
           await createFile(op.filePath, op.content);
           break;
-        case 'replaceInFile':
-          await updateFileWithReplacement(op.filePath, op.content, op.find);
+        case 'writeWithReplace':
+          await writeFileWithReplace(op.filePath, op.content, op.find);
           break;
 
         case 'move':
@@ -98,8 +98,8 @@ export async function executePlan(operations: FileOperation[], planDescription: 
 
   // 检查执行结果
   const totalOps = executionResults.length;
-  const executionSummary = `执行完成: ${successfulOps} 成功, ${failedOps} 失败 (共 ${totalOps} 个操作)`;
-  console.log(CliStyle.success(executionSummary));
+  const executionComment = `执行完成: ${successfulOps} 成功, ${failedOps} 失败 (共 ${totalOps} 个操作)`;
+  console.log(CliStyle.success(executionComment));
   const executionDescription = `执行结果: ${successfulOps}/${totalOps} 个操作成功 (${failedOps} 个失败)`;
 
   // 如果有失败操作，抛出错误

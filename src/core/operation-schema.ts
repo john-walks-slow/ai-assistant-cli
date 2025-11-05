@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const OperationTypeSchema = z.enum(['response', 'create', 'replaceInFile', 'move', 'delete']);
+export const OperationTypeSchema = z.enum(['response', 'create', 'writeWithReplace', 'move', 'delete']);
 
 export const BaseOperationSchema = z.object({
   type: OperationTypeSchema,
@@ -18,8 +18,8 @@ export const CreateOperationSchema = BaseOperationSchema.extend({
   content: z.string(),
 });
 
-export const ReplaceInFileOperationSchema = BaseOperationSchema.extend({
-  type: z.literal('replaceInFile'),
+export const writeWithReplaceOperationSchema = BaseOperationSchema.extend({
+  type: z.literal('writeWithReplace'),
   filePath: z.string().min(1),
   find: z.string().optional(),
   content: z.string(),
@@ -38,7 +38,7 @@ export const DeleteOperationSchema = BaseOperationSchema.extend({
 
 export const FileOperationSchema = z.union([
   CreateOperationSchema,
-  ReplaceInFileOperationSchema,
+  writeWithReplaceOperationSchema,
   MoveOperationSchema,
   DeleteOperationSchema,
 ]);
@@ -125,9 +125,9 @@ export type ResponseOperation = z.infer<typeof ResponseOperationSchema>;
 export type CreateOperation = z.infer<typeof CreateOperationSchema>;
 
 /**
- * ReplaceInFile 操作类型
+ * writeWithReplace 操作类型
  */
-export type ReplaceInFileOperation = z.infer<typeof ReplaceInFileOperationSchema>;
+export type writeWithReplaceOperation = z.infer<typeof writeWithReplaceOperationSchema>;
 
 /**
   * Move 操作类型

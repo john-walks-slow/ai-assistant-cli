@@ -53,7 +53,7 @@ async function parseContextAgentResponse(aiResponse: string): Promise<AiContextS
 function createFileContextPlaceholder(filePath: string, reason: string): FileContextItem {
   return {
     path: filePath,
-    summary: `File added to context. Reason: ${reason}`,
+    comment: `File added to context. Reason: ${reason}`,
     content: undefined, // Content is explicitly not read here
     start: undefined,
     end: undefined
@@ -97,14 +97,14 @@ async function executeSuggestedAction(action: ActionSuggestion, currentContext: 
 
         // Return a complete FileContextItem.
         // The calling loop will either update an existing placeholder or add this as a new item.
-        const summary = existingItem
+        const comment = existingItem
           ? `Full content read. Reason: ${reason}`
           : `File read and added to context. Reason: ${reason}`;
 
         return [{
           path: path,
           content: content,
-          summary: summary,
+          comment: comment,
           // Preserve existing start/end if the item was a search result snippet
           start: existingItem?.start,
           end: existingItem?.end,
@@ -241,11 +241,11 @@ function buildUserPromptForContextAgent(
   } else {
     prompt += `**Conversation History is available. Current round: ${round}.**\n\n`;
     if (currentFiles.length > 0) {
-      const contextSummary = currentFiles.map(item => {
+      const contextComment = currentFiles.map(item => {
         const status = item.content ? '[Content Read]' : '[Path Only]';
-        return `- ${status} ${item.path}${item.start ? ` (lines ${item.start}-${item.end})` : ''}: ${item.summary || 'Content snippet'}`;
+        return `- ${status} ${item.path}${item.start ? ` (lines ${item.start}-${item.end})` : ''}: ${item.comment || 'Content snippet'}`;
       }).join('\n');
-      prompt += `**Current Collected Context Summary:**\n${contextSummary}\n\n`;
+      prompt += `**Current Collected Context Comment:**\n${contextComment}\n\n`;
     } else {
       prompt += `No context has been collected yet.\n\n`;
     }

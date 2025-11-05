@@ -174,7 +174,7 @@ export async function searchProject(keywords: string[]): Promise<FileContextItem
             if (hasMatch) {
               items.push({
                 path: relativePath,
-                summary: `匹配关键词: ${keywords.slice(0,2).join(', ')}${keywords.length > 2 ? ' 等' : ''}`
+                comment: `匹配关键词: ${keywords.slice(0,2).join(', ')}${keywords.length > 2 ? ' 等' : ''}`
               });
             }
           } catch {}
@@ -246,7 +246,7 @@ export async function listFilesInDirectory(dirPath: string = '.', recursive: boo
  * @param regex - 正则表达式模式
  * @param filePattern - 文件 glob 模式 (可选)
  * @param contextLines - 匹配前后显示的行数 (默认 0)
- * @returns FileContextItem[]，每个包含匹配范围和 summary
+ * @returns FileContextItem[]，每个包含匹配范围和 comment
  */
 export async function advancedSearchFiles(searchPath: string = '.', regex: string, filePattern?: string, contextLines: number = 0): Promise<FileContextItem[]> {
   const rootDir = process.cwd();
@@ -290,7 +290,7 @@ export async function advancedSearchFiles(searchPath: string = '.', regex: strin
                 path: relativePath,
                 start: range.start,
                 end: range.end,
-                summary: `匹配 '${regex}' 在行 ${range.start}-${range.end}`
+                comment: `匹配 '${regex}' 在行 ${range.start}-${range.end}`
               });
             }
           } catch (err) {
@@ -320,7 +320,7 @@ export async function createFile(filePath: string, content: string): Promise<voi
  * @param content 替换内容
  * @param find 要查找的字符串（可选，如果未提供则替换整个内容）
  */
-export async function updateFileWithReplacement(filePath: string, content: string, find?: string): Promise<void> {
+export async function writeFileWithReplace(filePath: string, content: string, find?: string): Promise<void> {
   const originalContent = await fs.readFile(filePath, 'utf-8');
   const newContent = replaceInFile(originalContent, content, find);
   await fs.writeFile(filePath, newContent, 'utf-8');

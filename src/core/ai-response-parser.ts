@@ -1,13 +1,13 @@
 import {
   endDelimiter,
   endDelimiterRegex,
-  OperationValidator,
   startDelimiter,
   startDelimiterRegex,
 } from './operation-definitions';
 import { CliStyle } from '../utils/cli-style';
 import * as JSON5 from 'json5'; // Use JSON5 for parsing flexibly
 import { AiOperation } from './operation-schema';
+import { OperationValidator } from './operation-validator';
 
 /**
  * 类型别名，用于清晰表示局部 AI 操作。
@@ -21,7 +21,7 @@ type PartialAiOperation = Partial<AiOperation> & { [key: string]: any; };
  * @returns 解析的 PartialAiOperation 对象。
  * @throws {Error} 如果块格式错误。
  */
-function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
+function parseSingleOperationBlock(blockContent: string, looseMode: boolean = false): PartialAiOperation {
   const operation: PartialAiOperation = {};
   const lines = blockContent.split('\n');
 
@@ -41,7 +41,7 @@ function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
       if (endMatch && endMatch[1] === currentContentKey) {
         // 将收集到的行连接成字符串并赋值给对应的键的小写形式
         // 例如, LOG_END -> operation.log
-        operation[currentContentKey] = contentLines.join('\n');
+        operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
 
         // 重置状态，准备解析下一个参数或内容块
         contentLines = [];
@@ -57,9 +57,15 @@ function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
     // 如果不在任何内容块中，检查是否为新的开始定界符
     const startMatch = startDelimiterRegex.exec(trimmedLine);
     if (startMatch) {
-      // 检查是否有嵌套的开始定界符，这是不允许的
       if (currentContentKey) {
-        throw new Error(`在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`);
+        if (looseMode) {
+          // 自动关闭上一个内容块
+          operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
+          console.log(CliStyle.warning(`自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`));
+          contentLines = [];
+        } else {
+          throw new Error(`在 '${currentContentKey} START' 块内发现嵌套的开始定界符: '${trimmedLine}'`);
+        }
       }
       // 设置当前内容块的键，例如, "LOG"
       currentContentKey = startMatch[1];
@@ -98,7 +104,13 @@ function parseSingleOperationBlock(blockContent: string): PartialAiOperation {
 
   // 确保所有内容块都已正确关闭
   if (currentContentKey) {
-    throw new Error(`未关闭的内容块: '${currentContentKey} START'`);
+    if (looseMode) {
+      // 自动关闭最后一个内容块
+      operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
+      console.log(CliStyle.warning(`自动关闭未闭合的 ${currentContentKey.toLowerCase()} 块`));
+    } else {
+      throw new Error(`未关闭的内容块: '${currentContentKey} START'`);
+    }
   }
 
   return operation;
@@ -165,7 +177,7 @@ function findOperationBlocks(response: string): string[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-function parseDelimitedOperations(response: string, shouldValidate = true): AiOperation[] {
+function parseDelimitedOperations(response: string, shouldValidate = true, looseMode: boolean = false): AiOperation[] {
   const blocks = findOperationBlocks(response);
   if (!blocks.length) {
     return [];
@@ -179,7 +191,7 @@ function parseDelimitedOperations(response: string, shouldValidate = true): AiOp
     if (!block.trim()) continue;
 
     try {
-      const operation = parseSingleOperationBlock(block);
+      const operation = parseSingleOperationBlock(block, looseMode);
       if (shouldValidate) {
         // 验证操作
         const validation = OperationValidator.validateOperation(operation);
@@ -259,7 +271,7 @@ function tryParseAsJson(response: string): AiOperation[] {
  * @param response - AI响应字符串。
  * @returns 验证过的操作数组。
  */
-export function parseAiResponse(response: string, shouldValidate = true): AiOperation[] {
+export function parseAiResponse(response: string, shouldValidate = true, looseMode: boolean = true): AiOperation[] {
   const trimmed = response.trim();
   if (!trimmed) {
     console.log(CliStyle.warning('AI响应为空'));
@@ -278,7 +290,7 @@ export function parseAiResponse(response: string, shouldValidate = true): AiOper
   }
 
   // 回退到定界格式
-  const delimitedOps = parseDelimitedOperations(trimmed, shouldValidate);
+  const delimitedOps = parseDelimitedOperations(trimmed, shouldValidate, looseMode);
   if (delimitedOps.length > 0) {
     return delimitedOps;
   }

@@ -2,10 +2,10 @@
 
 ## 概述
 Context-Agent 是一个可选的自动化上下文准备组件，用于在主处理流程前智能收集和总结相关文件/历史上下文。核心哲学：
-- **轻量**：仅输出路径+摘要（summary），不修改文件或执行操作。
+- **轻量**：仅输出路径+摘要（comment），不修改文件或执行操作。
 - **单步**：基于用户prompt生成建议，用户确认后锁定上下文，传入main-processor。
 - **用户控制**：默认使用手动files参数；autocontext通过配置或CLI选项启用。
-- **隔离设计**：Agent独立运行，输出结构化上下文（文件路径+可选片段范围+summary，历史摘要），传入main-processor → AI → plan-reviewer。
+- **隔离设计**：Agent独立运行，输出结构化上下文（文件路径+可选片段范围+comment，历史摘要），传入main-processor → AI → plan-reviewer。
 
 扩展支持：
 - 文件片段：非全文，提供行范围（如1-50）以减少token消耗。
@@ -18,9 +18,9 @@ Context-Agent 是一个可选的自动化上下文准备组件，用于在主处
   - `async prepareContext(userPrompt: string, options: PrepareOptions): Promise<PreparedContext>`
     - 输入：userPrompt（用户指令），options（{autocontext?: boolean, files?: string[], includeHistory?: number | string, historyId?: string}）
     - 逻辑：
-      - 如果autocontext启用：使用userPrompt驱动AI或搜索工具（e.g., search_files）识别相关文件/片段，生成summary。
-      - 手动模式：直接使用files，生成基本summary（e.g., 文件列表）。
-      - 历史集成：如果includeHistory，加载.mai-history.json，选择最近N条或指定ID，格式化为文本摘要（e.g., "历史ID: prompt\n操作: [type: create, file: path, content summary]"）。
+      - 如果autocontext启用：使用userPrompt驱动AI或搜索工具（e.g., search_files）识别相关文件/片段，生成comment。
+      - 手动模式：直接使用files，生成基本comment（e.g., 文件列表）。
+      - 历史集成：如果includeHistory，加载.mai-history.json，选择最近N条或指定ID，格式化为文本摘要（e.g., "历史ID: prompt\n操作: [type: create, file: path, content comment]"）。
       - 输出建议，用户交互确认（inquirer提示：确认/编辑/跳过）。
     - 输出：`PreparedContext = { files: Array<{path: string, lines?: {start: number, end: number}}>, summaries: string[], historyContext?: string }`
   - `formatHistory(historyEntries: HistoryEntry[]): string`：格式化历史为prompt + operations摘要。
@@ -32,8 +32,8 @@ Context-Agent 是一个可选的自动化上下文准备组件，用于在主处
   1. 基于userPrompt提取关键词（e.g., "更新main-processor" → 搜索"main-processor"相关）。
   2. 搜索项目文件：使用search_files工具在src/目录，regex基于prompt（e.g., regex: userPrompt关键词）。
   3. AI总结：调用getAiResponse生成文件/片段建议（prompt: "基于用户指令[userPrompt]，建议3-5个相关文件路径和行范围摘要"）。
-  4. 片段支持：优先选择相关函数/块（e.g., lines: 20-50），使用read_file获取确切内容，summary描述"文件X的Y函数，行20-50：处理Z逻辑"。
-  5. 用户确认：显示建议列表（路径+summary），inquirer选择/编辑。
+  4. 片段支持：优先选择相关函数/块（e.g., lines: 20-50），使用read_file获取确切内容，comment描述"文件X的Y函数，行20-50：处理Z逻辑"。
+  5. 用户确认：显示建议列表（路径+comment），inquirer选择/编辑。
 - **边界**：限制5-10文件，避免token爆炸；如果无匹配，fallback到手动或VSCode open tabs（从environment_details获取）。
 
 ## 历史引用集成
@@ -101,7 +101,7 @@ export interface MaiConfig {
 ## 整体流程验证
 - **模拟流程**：
   1. 用户：mai "更新上下文处理" --autocontext --include-history 2
-  2. Context-Agent：搜索/ AI建议 files: [{path: 'src/core/file-context.ts', lines: {start:1, end:20}, summary: '当前文件读取逻辑'}] + 历史摘要。
+  2. Context-Agent：搜索/ AI建议 files: [{path: 'src/core/file-context.ts', lines: {start:1, end:20}, comment: '当前文件读取逻辑'}] + 历史摘要。
   3. 用户确认：inquirer选择确认。
   4. 传入main-processor：getFileContext读取片段 + 历史到userPrompt。
   5. AI生成operations。

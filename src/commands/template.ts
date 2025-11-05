@@ -69,7 +69,7 @@ export async function showTemplate(templateName: string): Promise<void> {
  * @param files - 作为上下文的文件列表。
  * @param options - 包含用户输入、选择和自定义占位符值的选项。
  */
-export async function applyTemplate(templateName: string, files: string[], options: { input?: string, selection?: string, set?: string[]; }): Promise<void> {
+export async function applyTemplate(templateName: string, files: string[], options: { input?: string, selection?: string, set?: string[], autoApply?: boolean; }): Promise<void> {
   try {
     const config = await loadConfig();
     const template = config.templates?.find((t) => t.name === templateName);
@@ -137,9 +137,9 @@ export async function applyTemplate(templateName: string, files: string[], optio
     console.log(CliStyle.process(`\n正在应用模板 '${templateName}'。最终指令:\n`));
     console.log(CliStyle.muted(expandedPrompt));
     console.log();
-
     // 调用核心处理函数
-    await processRequest(expandedPrompt, files);
+    await processRequest(expandedPrompt, files, undefined, undefined, undefined, false, options.autoApply || false);
+
 
   } catch (error) {
     console.error(CliStyle.error(`应用模板失败: ${(error as Error).message}`));

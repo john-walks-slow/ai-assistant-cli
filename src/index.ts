@@ -21,14 +21,17 @@ const program = new Command();
 program
   .name('mai')
   .version(packageJson.version)
-  .description('简单 AI 编码助手')
-    .argument('[prompt]', 'AI指令。未提供时将提示输入。支持 ask: 前缀或 -a 选项来忽略系统提示词。')
-    .argument('[files...]', '可选的文件列表作为上下文。支持范围格式如 "src/file.ts:10-20" (提取第10-20行，仅限于具体文件路径；glob 模式不支持范围)。')
+  .description('MAI - Minimal File Operation AI')
+  .argument('[prompt]', '提示词。')
+  .argument('[files...]', '作为上下文的文件。支持glob如 "src/**"。支持指定行数范围如 "src/file.ts:10-20"。')
+  .option('-y, --auto-apply', '自动应用计划，无需用户确认（假设计划正确）。')
+  .option('-r, --history <ids>', '引用历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。')
+  .option('-d, --history-depth <number>', '历史深度，自动加载最近 N 条历史（默认从配置或 0）。')
   .option('-c, --chat', '忽略系统提示词，使用空提示。')
   .option('-a, --auto-context', '启用自动上下文准备，使用 AI 收集相关文件上下文。')
-  .option('-h, --history <ids>', '指定历史记录 ID、名称或索引列表（逗号分隔，如 ~1,id2）作为上下文。')
-  .option('-d, --history-depth <number>', '历史深度，自动加载最近 N 条历史（默认从配置或 0）。')
-  .action(async (promptArg: string | undefined, files: string[], options: { chat?: boolean; autoContext?: boolean; history?: string; historyDepth?: string; }) => {
+  .option('-m, --model <model>', '指定使用的AI模型，覆盖默认配置。')
+  .option('-t, --temperature <number>', '指定AI模型的temperature参数，控制输出的随机性 (0-2)。')
+  .action(async (promptArg: string | undefined, files: string[], options: { chat?: boolean; autoContext?: boolean; autoApply?: boolean; history?: string; historyDepth?: string; model?: string; temperature?: string; }) => {
     let actualPrompt: string;
     let systemToUse: string | undefined = undefined;
 
@@ -72,18 +75,6 @@ program
     // 解析 historyIds 和 historyDepth
     let historyIds: string[] | undefined;
     let historyDepth: number | undefined;
-    if (options.history) {
-      historyIds = options.history.split(',').map(s => s.trim()).filter(s => s.length > 0);
-      if (historyIds.length === 0) historyIds = undefined;
-    }
-    if (options.historyDepth) {
-      const depthNum = parseInt(options.historyDepth, 10);
-      if (!isNaN(depthNum) && depthNum > 0) {
-        historyDepth = depthNum;
-      } else {
-        console.log(CliStyle.warning(`无效的历史深度: ${options.historyDepth}，忽略。`));
-      }
-    }
 
     try {
       // 解析 historyIds 和 historyDepth
@@ -103,11 +94,24 @@ program
       }
 
       const autoContext = options.autoContext || false;
-  
+      const autoApply = options.autoApply || false;
+      const model = options.model;
+
+      // 解析temperature选项
+      let temperature: number | undefined;
+      if (options.temperature) {
+        const tempNum = parseFloat(options.temperature);
+        if (!isNaN(tempNum) && tempNum >= 0 && tempNum <= 2) {
+          temperature = tempNum;
+        } else {
+          console.log(CliStyle.warning(`无效的temperature值: ${options.temperature}，必须在0-2之间，忽略。`));
+        }
+      }
+
       if (systemToUse !== undefined) {
-        await processRequest(actualPrompt, files, historyIds, historyDepth, systemToUse, autoContext);
+        await processRequest(actualPrompt, files, historyIds, historyDepth, systemToUse, autoContext, autoApply, model, temperature);
       } else {
-        await processRequest(actualPrompt, files, historyIds, historyDepth, undefined, autoContext);
+        await processRequest(actualPrompt, files, historyIds, historyDepth, undefined, autoContext, autoApply, model, temperature);
       }
     } catch (error) {
       console.error(CliStyle.error(`\n发生严重错误: ${error instanceof Error ? error.message : String(error)}`));
@@ -120,8 +124,9 @@ program
  */
 program
   .command('exec-plan <planSource>')
-  .description('从文件路径或直接字符串执行给定计划。支持 JSON 和定界（delimited）两种格式。此命令将启动交互式审查流程，允许用户在应用前修改和确认更改，并会自动保存应用计划前的状态。')
-  .action(async (planSource: string) => {
+  .description('从文件路径或直接字符串执行给定计划。支持 JSON 和定界（delimited）两种格式。')
+  .action(async (planSource: string, options, command: Command) => {
+    const allOptions = command.optsWithGlobals();
     let planContent: string;
 
     const trimmedSource = planSource.trim();
@@ -149,7 +154,9 @@ program
     try {
       // 重用现有的AI响应处理逻辑，它处理解析、验证和审查/执行。
       // 传递 planSource 作为 userPrompt，用于历史记录描述。
-      await processAiResponse(planContent, `手动执行计划来源: ${planSource}`);
+      // 添加 autoApply 参数
+      const autoApply = allOptions.autoApply || false;
+      await processAiResponse(planContent, `手动执行计划来源: ${planSource}`, autoApply, []);
     } catch (error) {
       console.error(CliStyle.error(`\n执行计划失败: ${error instanceof Error ? error.message : String(error)}`));
       process.exit(1);
@@ -161,7 +168,7 @@ program
  */
 program
   .command('history')
-  .description('管理项目历史记录（轻量级版本控制）。支持使用 ID/名称 或 ~n 索引格式（如 ~1 表示最近一次）。')
+  .description('管理历史记录。')
   .addCommand(new Command('list')
     .description('列出所有可用历史记录。')
     .option('-f, --file-only', '只显示包含文件操作的历史记录。')
@@ -214,8 +221,9 @@ program
     .option('-i, --input <value>', '用于填充 {{user_input}} 占位符的值。')
     .option('-s, --selection <value>', '用于填充 {{selection}} 占位符的值。')
     .description('应用指定的提示模板，并用提供的文件和输入填充占位符。')
-    .action(async (name: string, files: string[], options: { input?: string, selection?: string; }) => {
-      await applyTemplate(name, files, options);
+    .action(async (name: string, files: string[], options: { input?: string, selection?: string, }, command: Command) => {
+      const allOptions = command.optsWithGlobals();
+      await applyTemplate(name, files, allOptions);
     }));
 
 /**
