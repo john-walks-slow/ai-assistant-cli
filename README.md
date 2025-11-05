@@ -191,6 +191,7 @@ mai <prompt> [files...] [options]
 - `apply <name> [files...] [options]`: 应用指定的提示词模板，并用提供的文件和输入填充占位符
   - `-i, --input <value>`: 用于填充 `{{user_input}}` 占位符的值
   - `-s, --selection <value>`: 用于填充 `{{selection}}` 占位符的值
+  - `--set <key=value>`: 设置自定义占位符值（可多次使用）
 
 #### `mai exec-plan <planSource>`
 
