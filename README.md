@@ -97,39 +97,39 @@ MAI 的配置文件位于 `~/.mai/config.json5`。模板文件存储在 `~/.mai/
   providers: {
     openrouter: {
       // OpenAI v1 baseUrl
-      url: 'https://openrouter.ai/api/v1',
+      url: "https://openrouter.ai/api/v1",
       // 定义可用的模型
       models: [
-        'minimax/minimax-m2:free',
-        'qwen/qwen3-coder:free',
-        'moonshotai/kimi-k2:free',
-        'z-ai/glm-4.5-air:free'
+        "minimax/minimax-m2:free",
+        "qwen/qwen3-coder:free",
+        "moonshotai/kimi-k2:free",
+        "z-ai/glm-4.5-air:free"
       ],
       // 包含 API Key 的环境变量名
-      apiKeyEnv: 'OPENROUTER_API_KEY',
+      apiKeyEnv: "OPENROUTER_API_KEY",
       // 直接指定 API Key（覆盖 apiKeyEnv）
-      // apiKey: 'xxxxx'
+      // apiKey: "xxxxx"
     },
     gemini: {
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/v1',
-      models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-      apiKeyEnv: 'GEMINI_API_KEY'
+      url: "https://generativelanguage.googleapis.com/v1beta/openai/v1",
+      models: ["gemini-2.5-flash", "gemini-2.5-pro"],
+      apiKeyEnv: "GEMINI_API_KEY"
     },
     openai: {
-      url: 'https://api.openai.com/v1',
-      models: ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
-      apiKeyEnv: 'OPENAI_API_KEY'
+      url: "https://api.openai.com/v1",
+      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],
+      apiKeyEnv: "OPENAI_API_KEY"
     },
     siliconflow: {
-      url: 'https://api.siliconflow.cn/v1',
+      url: "https://api.siliconflow.cn/v1",
       models: [
-        'MiniMaxAI/MiniMax-M2'
+        "MiniMaxAI/MiniMax-M2"
       ],
-      apiKeyEnv: 'SILICONFLOW_API_KEY',
+      apiKeyEnv: "SILICONFLOW_API_KEY",
     }
   },
   // 当前模型，格式为 provider/model。可以用 mai model select 变更。
-  model: 'openrouter/minimax/minimax-m2:free',
+  model: "openrouter/minimax/minimax-m2:free",
   // 模型温度
   temperature: 0.8,
   // 自动附带的历史上下文深度
