@@ -230,9 +230,15 @@ npm link
 npm run dev
 ```
 
-**更新版本号并发布（自动触发 Workflow）**
+**更新版本号并发布**
 ```bash
+# 提交修改
+git commit ...
+# 变更版本号
 npm version patch
+# 先推送修改，此时会触发发布 Workflow
+git push origin
+# 再推送 tag
 git push origin --tags
 ```
 
