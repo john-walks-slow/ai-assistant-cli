@@ -71,7 +71,9 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
     } catch (error) {
       console.log(
         CliStyle.warning(
-          `警告: 处理模式 '${pattern}' 时出错。错误: ${(error as Error).message}`
+          `警告: 处理模式 '${pattern}' 时出错。错误: ${
+            (error as Error).message
+          }`
         )
       );
     }
@@ -114,7 +116,9 @@ export async function getFileContext(filePatterns: string[]): Promise<string> {
     } catch (accessError) {
       console.log(
         CliStyle.warning(
-          `警告: 文件不存在或无法访问 '${file}'，跳过。错误: ${(accessError as Error).message}`
+          `警告: 文件不存在或无法访问 '${file}'，跳过。错误: ${
+            (accessError as Error).message
+          }`
         )
       );
     }
@@ -144,16 +148,18 @@ export async function formatFileContexts(
     } catch (error) {
       console.log(
         CliStyle.warning(
-          `警告: 处理文件 ${item.path} 时出错。错误: ${(error as Error).message}`
+          `警告: 处理文件 ${item.path} 时出错。错误: ${
+            (error as Error).message
+          }`
         )
       );
     }
   }
-
   if (contents.length === 0) {
     return '';
   }
 
+  console.log(CliStyle.success(`成功添加 ${items.length} 个文件。`));
   return contents.join('\n\n');
 
   async function addFileContent(
@@ -163,7 +169,6 @@ export async function formatFileContexts(
     try {
       const stat = await fs.stat(item.path);
       if (stat.isDirectory()) {
-        console.log(CliStyle.warning(`警告: '${item.path}' 是目录，跳过。`));
         return;
       }
       const content = await fs.readFile(item.path, 'utf-8');
@@ -181,7 +186,9 @@ export async function formatFileContexts(
         if (extractedLines.length === 0) {
           console.log(
             CliStyle.warning(
-              `警告: 文件 ${item.path} 中范围 ${item.start}-${item.end ?? 'end'} 为空，跳过。`
+              `警告: 文件 ${item.path} 中范围 ${item.start}-${
+                item.end ?? 'end'
+              } 为空，跳过。`
             )
           );
           return;
@@ -217,7 +224,9 @@ export async function formatFileContexts(
     } catch (error) {
       console.log(
         CliStyle.warning(
-          `警告: 无法读取文件 ${item.path}，跳过。错误: ${(error as Error).message}`
+          `警告: 无法读取文件 ${item.path}，跳过。错误: ${
+            (error as Error).message
+          }`
         )
       );
     }

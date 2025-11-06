@@ -36,27 +36,7 @@ async function parseSingleOperationBlock(
   for (const line of lines) {
     const trimmedLine = line.trim();
 
-    // 检查是否在内容块中
-    if (currentContentKey) {
-      const endMatch = endDelimiterRegex.exec(trimmedLine);
-      // 检查是否为当前内容块的结束定界符
-      if (endMatch && endMatch[1] === currentContentKey) {
-        // 将收集到的行连接成字符串并赋值给对应的键的小写形式
-        // 例如, LOG_END -> operation.log
-        operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
-
-        // 重置状态，准备解析下一个参数或内容块
-        contentLines = [];
-        currentContentKey = null;
-        continue;
-      } else {
-        // 如果不是结束定界符，则将该行视为内容的一部分
-        contentLines.push(line);
-        continue;
-      }
-    }
-
-    // 如果不在任何内容块中，检查是否为新的开始定界符
+    // 检查是否为新的开始定界符
     const startMatch = startDelimiterRegex.exec(trimmedLine);
     if (startMatch) {
       if (currentContentKey) {
@@ -78,6 +58,29 @@ async function parseSingleOperationBlock(
       // 设置当前内容块的键，例如, "LOG"
       currentContentKey = startMatch[1];
       continue;
+    }
+    // 检查是否在内容块中
+    if (currentContentKey) {
+      const endMatch = endDelimiterRegex.exec(trimmedLine);
+      // 检查是否为当前内容块的结束定界符
+      if (
+        (endMatch && endMatch[1] === currentContentKey) ||
+        (looseMode && trimmedLine === '--- end ---') ||
+        (looseMode && trimmedLine === '--- end content ---')
+      ) {
+        // 将收集到的行连接成字符串并赋值给对应的键的小写形式
+        // 例如, LOG_END -> operation.log
+        operation[currentContentKey.toLowerCase()] = contentLines.join('\n');
+
+        // 重置状态，准备解析下一个参数或内容块
+        contentLines = [];
+        currentContentKey = null;
+        continue;
+      } else {
+        // 如果不是结束定界符，则将该行视为内容的一部分
+        contentLines.push(line);
+        continue;
+      }
     }
 
     // 如果既不是内容行，也不是定界符行，则解析为参数行
